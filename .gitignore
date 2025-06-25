@@ -8,4 +8,7 @@ images/*
 *.tgz
 *.pkl
 
+
+/datasets/
+
 results/*
