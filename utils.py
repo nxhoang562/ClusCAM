@@ -6,7 +6,7 @@ from utils import (
     load_image, apply_transforms, basic_visualize,
     list_image_paths, preprocess_image, predict_top1_indices
 )
-from cam.clusterscorecam2 import ClusterScoreCAM2
+from cluster_cam.cam.maine_clusterscorecam import ClusterScoreCAM
 from metrics.average_drop import AverageDrop
 from metrics.average_increase import AverageIncrease
 

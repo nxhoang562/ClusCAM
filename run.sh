@@ -1,0 +1,1 @@
+python3 test.py --mode single --img-path images/ILSVRC2012_val_00002193.JPEG --save-prefix results/alexnet --num-clusters 5
