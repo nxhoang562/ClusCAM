@@ -2,6 +2,7 @@ import os
 import torch
 import pandas as pd
 import numpy as np
+from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 from utils import (
     load_image, apply_transforms, basic_visualize,
     list_image_paths, preprocess_image, predict_top1_indices
@@ -16,14 +17,42 @@ from metrics.average_increase import AverageIncrease
 
 # Mapping giữa tên method và hàm khởi tạo tương ứng
 CAM_FACTORY = {
-    "cluster":  lambda md, num_clusters=None : ClusterScoreCAM(md, num_clusters=num_clusters,  zero_ratio=md.get('zero_ratio', 0.5),
-    temperature=md.get('temperature', 1.0)),
-    "grad":     lambda md, **kw: GradCAM(model=md["arch"], target_layer=md["arch"]._modules[md["layer_name"]]),
-    "gradpp":   lambda md, **kw: GradCAMPlusPlus(model=md["arch"], target_layer=md["arch"]._modules[md["layer_name"]]),
-    "layer":    lambda md, **kw: LayerCAM(model=md["arch"], target_layer=md["arch"]._modules[md["layer_name"]]),
-    "score":    lambda md, **kw: ScoreCAM(model=md["arch"], target_layer=md["arch"]._modules[md["layer_name"]]),
-    "ablation": lambda md, **kw: AblationCAM(model=md["arch"], target_layer=md["arch"]._modules[md["layer_name"]]),
-    "shapley":  lambda md, **kw: ShapleyCAM(model=md["arch"], target_layer=md["arch"]._modules[md["layer_name"]]),
+    "cluster": lambda md, num_clusters=None: ClusterScoreCAM(
+        md, 
+        num_clusters=num_clusters,
+        zero_ratio=md.get("zero_ratio", 0.5),
+        temperature=md.get("temperature", 1.0)
+    ),
+    "gradcam": lambda md, **kw: GradCAM(
+        model=md["arch"],
+        target_layers=[getattr(md["arch"], md["layer_name"])],
+        **kw
+    ),
+    "gradcamplusplus": lambda md, **kw: GradCAMPlusPlus(
+        model=md["arch"],
+        target_layers=[getattr(md["arch"], md["layer_name"])],
+        **kw
+    ),
+    "layercam": lambda md, **kw: LayerCAM(
+        model=md["arch"],
+        target_layers=[getattr(md["arch"], md["layer_name"])],
+        **kw
+    ),
+    "scorecam": lambda md, **kw: ScoreCAM(
+        model=md["arch"],
+        target_layers=[getattr(md["arch"], md["layer_name"])],
+        **kw
+    ),
+    "ablationcam": lambda md, **kw: AblationCAM(
+        model=md["arch"],
+        target_layers=[getattr(md["arch"], md["layer_name"])],
+        **kw
+    ),
+    "shapleycam": lambda md, **kw: ShapleyCAM(
+        model=md["arch"],
+        target_layers=[getattr(md["arch"], md["layer_name"])],
+        **kw
+    ),
 }
 
 def test_single_image(
@@ -58,7 +87,9 @@ def test_single_image(
     if cam_method == "cluster":
         sal_map = cam(inp, class_idx=target_cls).cpu().squeeze(0)
     else:
-        sal_map = cam(input_tensor=inp, targets=[target_cls]).cpu().squeeze(0)
+        # sal_map = cam(input_tensor=inp, targets=[target_cls]).cpu().squeeze(0)
+        saliency_np = cam(input_tensor=inp, targets=[ClassifierOutputTarget(target_cls)])
+        sal_map = torch.from_numpy(saliency_np).cpu().squeeze(0)
 
     # Lưu heatmap
     filename = f"{save_prefix}_{cam_method}"
@@ -143,7 +174,8 @@ def batch_test(
             if cam_method == "cluster":
                 sal_map = cam(img_tensor, class_idx=cls).cpu().squeeze(0)
             else:
-                sal_map = cam(input_tensor=img_tensor, targets=[cls]).cpu().squeeze(0)
+                saliency_np = cam(input_tensor=img_tensor,  targets=[ClassifierOutputTarget(cls)])
+                sal_map = torch.from_numpy(saliency_np).cpu().squeeze(0)
 
             sal3 = sal_map.unsqueeze(0).repeat(1, img_tensor.size(1), 1, 1)
             drops.append(AverageDrop()(model, img_tensor, sal3, cls, device, True))
@@ -162,7 +194,7 @@ def batch_test(
             "average_drop": np.mean(drops),
             "increase_confidence": np.mean(incs)
         }])
-        df = pd.concat([df, avg_row], ignore_index=True)
+        df = pd.concat([avg_row, df], ignore_index=True)
 
         sheet_name = cam_method if c is None else f"{cam_method}_K{c}"
         mode = "a" if os.path.exists(excel_path) else "w"

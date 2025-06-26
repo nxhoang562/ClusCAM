@@ -38,7 +38,7 @@ def get_args():
     
     parser.add_argument("--cam-method",
                         type = str,
-                        choices = ["cluster",],
+                        choices = ["cluster", "gradcam", "gradcamplusplus", "layercam", "scorecam", "ablationcam", "shapleycam"],
                         default = "cluster",
                         help = "Phương pháp CAM để sử dụng")
     
