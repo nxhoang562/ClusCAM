@@ -2,7 +2,8 @@ import os
 import torchvision.models as models
 from args import get_args
 from test_utils import test_single_image, batch_test
-
+import torch
+from models.alzheimer_resnet18.alzheimer_resnet18 import load_model
 
 def main():
     args = get_args()
@@ -21,6 +22,19 @@ def main():
             'zero_ratio': args.zero_ratio,
             'temperature': args.temperature,
         }
+    elif args.model == 'alzheimer_resnet18':
+        model = load_model(args.checkpoint, device='cuda' if torch.cuda.is_available() else 'cpu')
+        model.eval()
+        model_dict = {
+            'type': args.model,
+            'arch': model,
+            'layer_name': args.layer_name,
+            'input_size': (128, 128),  # Kích thước đầu vào của mô hình MRI
+            'cam_method': args.cam_method,
+            'zero_ratio': args.zero_ratio,
+            'temperature': args.temperature,
+        }
+        
     else:
         raise ValueError(f"Model {args.model} không hỗ trợ")
 

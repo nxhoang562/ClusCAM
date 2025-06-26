@@ -6,7 +6,7 @@ MODEL="resnet18"
 LAYER="layer4"
 DATASET="datasets/imagenet"  # Thư mục chứa ảnh, có thể là đường dẫn đến tập dữ liệu ImageNet hoặc một tập dữ liệu khác
 EXCEL_PATH="results/imagenet"
-K_VALUES=(5 10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 90 95 100)    # danh sách các K bạn muốn thử
+K_VALUES=(30 35 40 45 50 55 60 65 70 75 80 85 90 95 100)    # danh sách các K bạn muốn thử
 CAM_METHOD="cluster"  # hoặc grad, score, v.v.
 TOP_N=1000
 

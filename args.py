@@ -7,7 +7,7 @@ def get_args():
     parser.add_argument('--mode', choices=['single', 'batch'], default='batch',
                         help="Chế độ chạy: 'single' hay 'batch'")
     
-    parser.add_argument('--model', choices=['resnet18'], default='resnet18',
+    parser.add_argument('--model', choices=['resnet18', 'alzheimer_resnet18'], default='resnet18',
                         help="Chọn kiến trúc model")
     
     parser.add_argument('--layer-name', default='layer4',
@@ -22,7 +22,7 @@ def get_args():
     parser.add_argument('--save-prefix', type=str, default='output',
                         help="(mode 'single') Prefix file heatmap")
     
-    parser.add_argument('--dataset', type=str,
+    parser.add_argument('--dataset', choices=['imagenet', 'alzheimer'], type=str,
                         help="(mode 'batch') Thư mục chứa ảnh")
     
     parser.add_argument('--excel-path', type=str,
