@@ -13,7 +13,7 @@ from utils import (
     list_image_paths, preprocess_image, predict_top1_indices
 )
 from cam.clusterscorecam import ClusterScoreCAM
-from cam.clusterscorecam2 import ClusterScoreCAM2
+from cluster_cam.cam.main_clusterscorecam import ClusterScoreCAM2
 from cam.HDBSCANcam import HDBSCANcam
 from metrics.average_drop import AverageDrop
 from metrics.average_increase import AverageIncrease

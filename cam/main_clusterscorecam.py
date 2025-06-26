@@ -21,13 +21,13 @@ class ClusterScoreCAM(BaseCAM):
         num_clusters=10,
         zero_ratio=0.5,
         temperature_dict=None,
-        default_temperature=1.0
+        temperature=1.0
     ):
         super().__init__(model_dict)
         self.K = num_clusters
         self.zero_ratio = zero_ratio
         self.temperature_dict = temperature_dict or {}
-        self.default_temperature = default_temperature
+        self.temperature = temperature
 
     def forward(self, input, class_idx=None, retain_graph=False):
         # Input: (1,C,H,W)
@@ -81,7 +81,7 @@ class ClusterScoreCAM(BaseCAM):
             diffs[lowest] = float('-inf')
 
         # 7) Softmax với nhiệt độ class
-        T = self.temperature_dict.get(class_idx, self.default_temperature)
+        T = self.temperature_dict.get(class_idx, self.temperature)
         weights = F.softmax(diffs / T, dim=0)
 
         # 8) Kết hợp saliency map
