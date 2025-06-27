@@ -124,11 +124,12 @@ def test_single_image(
 
 def batch_test(
     model, model_dict, dataset, excel_path,
-    k_values, cam_method="cluster", top_n=100, 
+    k_values, cam_method="cluster", top_n=None, 
     model_name=None
 ):
     """
     Test CAM trên nhiều ảnh và nhiều giá trị K (nếu cần), lưu kết quả vào Excel.
+    Nếu top_n=None (mặc định), sẽ sử dụng hết tất cả ảnh trong thư mục dataset.
     """
     if model_name is None:
         raise ValueError("batch_test: cần truyền model_name (chuỗi)")
@@ -136,11 +137,16 @@ def batch_test(
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = model.to(device).eval()
 
-    image_paths = list_image_paths(dataset)[:top_n]
-    if not image_paths:
-        raise RuntimeError(f"No images found in {dataset} (top_n={top_n})")
+    # Lấy toàn bộ đường dẫn ảnh
+    all_paths = list_image_paths(dataset)
+    if not all_paths:
+        raise RuntimeError(f"No images found in {dataset}")
+    # Nếu top_n là None, load hết; ngược lại cắt slice
+    image_paths = all_paths if top_n is None else all_paths[:top_n]
+
     top1_idxs = predict_top1_indices(image_paths, model, device)
 
+    # Phần còn lại giữ nguyên
     if os.path.isdir(excel_path):
         excel_dir = excel_path
         excel_filename = "results.xlsx"
@@ -148,12 +154,10 @@ def batch_test(
         excel_dir = os.path.dirname(excel_path) or '.'
         excel_filename = os.path.basename(excel_path)
 
-    # Tạo thư mục theo model
     model_dir = os.path.join(excel_dir, model_name)
     os.makedirs(model_dir, exist_ok=True)
     full_path = os.path.join(model_dir, excel_filename)
 
-    # Nếu không dùng cluster, ta chỉ cần lặp một lần
     ks = k_values if cam_method == "cluster" else [None]
 
     for c in ks:
@@ -161,7 +165,6 @@ def batch_test(
         print(f"\n=== Testing {info} ===")
         drops, incs = [], []
 
-        # Khởi tạo CAM cho mỗi giá trị
         if cam_method == "cluster":
             cam = CAM_FACTORY["cluster"](model_dict, num_clusters=c)
         else:
@@ -174,14 +177,14 @@ def batch_test(
             if cam_method == "cluster":
                 sal_map = cam(img_tensor, class_idx=cls).cpu().squeeze(0)
             else:
-                saliency_np = cam(input_tensor=img_tensor,  targets=[ClassifierOutputTarget(cls)])
+                saliency_np = cam(input_tensor=img_tensor, targets=[ClassifierOutputTarget(cls)])
                 sal_map = torch.from_numpy(saliency_np).cpu().squeeze(0)
 
             sal3 = sal_map.unsqueeze(0).repeat(1, img_tensor.size(1), 1, 1)
             drops.append(AverageDrop()(model, img_tensor, sal3, cls, device, True))
             incs.append(AverageIncrease()(model, img_tensor, sal3, cls, device, True))
 
-        # Tạo DataFrame và ghi Excel
+        # Ghi kết quả vào Excel
         df = pd.DataFrame({
             "image_path": image_paths,
             "top1_index": top1_idxs,
@@ -197,10 +200,10 @@ def batch_test(
         df = pd.concat([avg_row, df], ignore_index=True)
 
         sheet_name = cam_method if c is None else f"{cam_method}_K{c}"
-        mode = "a" if os.path.exists(excel_path) else "w"
+        mode = "a" if os.path.exists(full_path) else "w"
         with pd.ExcelWriter(
-            excel_path, engine="openpyxl", mode=mode,
+            full_path, engine="openpyxl", mode=mode,
             if_sheet_exists="replace" if mode=="a" else None
         ) as writer:
             df.to_excel(writer, sheet_name=sheet_name, index=False)
-        print(f"Saved sheet {sheet_name} in {excel_path}")
+        print(f"Saved sheet {sheet_name} in {full_path}")
