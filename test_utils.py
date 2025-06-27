@@ -3,10 +3,7 @@ import torch
 import pandas as pd
 import numpy as np
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
-from utils import (
-    load_image, apply_transforms, basic_visualize,
-    list_image_paths, preprocess_image, predict_top1_indices
-)
+from utils import load_image, basic_visualize, list_image_paths
 from cam.main_clusterscorecam import ClusterScoreCAM
 from pytorch_grad_cam import (
     GradCAM, GradCAMPlusPlus, LayerCAM, ScoreCAM,
@@ -14,11 +11,50 @@ from pytorch_grad_cam import (
 )
 from metrics.average_drop import AverageDrop
 from metrics.average_increase import AverageIncrease
+from torchvision import transforms
+
+# Định nghĩa transforms cho ảnh RGB và Grayscale
+rgb_transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+])
+
+gray_transform = transforms.Compose([
+    transforms.Grayscale(num_output_channels=1),
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.5], std=[0.5])
+])
+
+
+def get_transform_for_model(model):
+    """
+    Tự động chọn pipeline transform:
+    - Nếu conv1 chỉ nhận 1 channel (grayscale), dùng gray_transform
+    - Ngược lại dùng rgb_transform
+    """
+    in_ch = model.conv1.in_channels
+    return gray_transform if in_ch == 1 else rgb_transform
+
+
+def predict_top1_indices(image_paths, model, device):
+    """Dự đoán chỉ số lớp top-1 cho danh sách ảnh sử dụng transform phù hợp."""
+    model = model.to(device).eval()
+    transform = get_transform_for_model(model)
+    top1 = []
+    with torch.no_grad():
+        for path in image_paths:
+            img = load_image(path)
+            inp = transform(img).unsqueeze(0).to(device)
+            logits = model(inp)
+            top1.append(logits.argmax(dim=1).item())
+    return top1
 
 # Mapping giữa tên method và hàm khởi tạo tương ứng
 CAM_FACTORY = {
     "cluster": lambda md, num_clusters=None: ClusterScoreCAM(
-        md, 
+        md,
         num_clusters=num_clusters,
         zero_ratio=md.get("zero_ratio", 0.5),
         temperature=md.get("temperature", 1.0)
@@ -61,22 +97,18 @@ def test_single_image(
 ):
     """
     Chạy CAM được chọn và tính metric cho 1 ảnh.
-    cam_method: phương pháp CAM, key trong CAM_FACTORY.
-    num_clusters: chỉ dùng khi cam_method=="cluster".
+    - Tự động chuyển sang grayscale nếu model chỉ nhận 1 channel.
     """
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
     model = model.to(device).eval()
 
-    # Khởi tạo CAM
-    if cam_method == "cluster":
-        cam = CAM_FACTORY["cluster"](model_dict, num_clusters=num_clusters)
-    else:
-        cam = CAM_FACTORY[cam_method](model_dict)
+    # Chọn transform phù hợp
+    transform = get_transform_for_model(model)
 
     # Load và preprocess ảnh
     img = load_image(img_path)
-    inp = apply_transforms(img).to(device)
+    inp = transform(img).unsqueeze(0).to(device)  # shape [1,C,224,224]
 
     # Dự đoán lớp top-1
     with torch.no_grad():
@@ -85,9 +117,10 @@ def test_single_image(
 
     # Tính saliency map
     if cam_method == "cluster":
+        cam = CAM_FACTORY["cluster"](model_dict, num_clusters=num_clusters)
         sal_map = cam(inp, class_idx=target_cls).cpu().squeeze(0)
     else:
-        # sal_map = cam(input_tensor=inp, targets=[target_cls]).cpu().squeeze(0)
+        cam = CAM_FACTORY[cam_method](model_dict)
         saliency_np = cam(input_tensor=inp, targets=[ClassifierOutputTarget(target_cls)])
         sal_map = torch.from_numpy(saliency_np).cpu().squeeze(0)
 
@@ -97,7 +130,7 @@ def test_single_image(
         filename += f"_K{num_clusters}"
     basic_visualize(inp.cpu().squeeze(0), sal_map, save_path=filename + ".png")
 
-    # Mở rộng kênh cho metric (1,3,H,W)
+    # Mở rộng kênh cho metric (1,C,H,W)
     sal3 = sal_map.unsqueeze(0).repeat(1, inp.size(1), 1, 1)
 
     # Tính metrics
@@ -129,42 +162,42 @@ def batch_test(
 ):
     """
     Test CAM trên nhiều ảnh và nhiều giá trị K (nếu cần), lưu kết quả vào Excel.
-    Nếu top_n=None (mặc định), sẽ sử dụng hết tất cả ảnh trong thư mục dataset.
+    - Tự động xử lý grayscale nếu cần.
     """
     if model_name is None:
         raise ValueError("batch_test: cần truyền model_name (chuỗi)")
-    
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = model.to(device).eval()
+
+    # Chọn transform phù hợp
+    transform = get_transform_for_model(model)
 
     # Lấy toàn bộ đường dẫn ảnh
     all_paths = list_image_paths(dataset)
     if not all_paths:
         raise RuntimeError(f"No images found in {dataset}")
-    # Nếu top_n là None, load hết; ngược lại cắt slice
     image_paths = all_paths if top_n is None else all_paths[:top_n]
 
+    # Dự đoán top1 cho toàn bộ ảnh
     top1_idxs = predict_top1_indices(image_paths, model, device)
 
-    # Phần còn lại giữ nguyên
+    # Chuẩn bị lưu Excel
     if os.path.isdir(excel_path):
         excel_dir = excel_path
         excel_filename = "results.xlsx"
     else:
         excel_dir = os.path.dirname(excel_path) or '.'
         excel_filename = os.path.basename(excel_path)
-
     model_dir = os.path.join(excel_dir, model_name)
     os.makedirs(model_dir, exist_ok=True)
     full_path = os.path.join(model_dir, excel_filename)
 
     ks = k_values if cam_method == "cluster" else [None]
-
     for c in ks:
         info = f"method={cam_method}" + (f", K={c}" if c else "")
         print(f"\n=== Testing {info} ===")
         drops, incs = [], []
-
+        # Khởi tạo CAM
         if cam_method == "cluster":
             cam = CAM_FACTORY["cluster"](model_dict, num_clusters=c)
         else:
@@ -172,7 +205,8 @@ def batch_test(
 
         for idx, (path, cls) in enumerate(zip(image_paths, top1_idxs), 1):
             print(f"[{idx}/{len(image_paths)}] {os.path.basename(path)} -> class {cls}")
-            img_tensor = preprocess_image(path, device)
+            img = load_image(path)
+            img_tensor = transform(img).unsqueeze(0).to(device)
 
             if cam_method == "cluster":
                 sal_map = cam(img_tensor, class_idx=cls).cpu().squeeze(0)
@@ -191,19 +225,10 @@ def batch_test(
             "average_drop": drops,
             "increase_confidence": incs,
         })
-        avg_row = pd.DataFrame([{
-            "image_path": "AVERAGE",
-            "top1_index": "",
-            "average_drop": np.mean(drops),
-            "increase_confidence": np.mean(incs)
-        }])
+        avg_row = pd.DataFrame([{"image_path": "AVERAGE", "top1_index": "", "average_drop": np.mean(drops), "increase_confidence": np.mean(incs)}])
         df = pd.concat([avg_row, df], ignore_index=True)
-
         sheet_name = cam_method if c is None else f"{cam_method}_K{c}"
         mode = "a" if os.path.exists(full_path) else "w"
-        with pd.ExcelWriter(
-            full_path, engine="openpyxl", mode=mode,
-            if_sheet_exists="replace" if mode=="a" else None
-        ) as writer:
+        with pd.ExcelWriter(full_path, engine="openpyxl", mode=mode, if_sheet_exists="replace" if mode=="a" else None) as writer:
             df.to_excel(writer, sheet_name=sheet_name, index=False)
         print(f"Saved sheet {sheet_name} in {full_path}")

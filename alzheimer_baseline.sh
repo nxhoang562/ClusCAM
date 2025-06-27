@@ -4,10 +4,10 @@ set -euo pipefail
 # Cấu hình tham số
 MODEL="alzheimer_resnet18"
 LAYER="layer4"
-DATASET="datasets/alzheimer"       
-EXCEL_PATH="results/alzheimer"  
+DATASET="datasets/alzheimer/test_imgs"       
+EXCEL_PATH="results"  
 K_VALUES=(30 35 40 45 50 55 60 65 70 75 80 85 90 95 100)
-CAM_METHOD="shapleycam"
+# CAM_METHOD="shapleycam"
 TOP_N=""   # để trống nghĩa là load toàn bộ ảnh
 
 # Tạo thư mục kết quả nếu chưa có
@@ -21,11 +21,9 @@ else
 fi
 
 # Chạy batch test với model alzheimer_resnet18
-python3 test.py \
-  --mode batch \
-  --model "${MODEL}" \
-  --layer-name "${LAYER}" \
-  --dataset "${DATASET}" \
-  --excel-path "${EXCEL_PATH}" \
-  --cam-method "${CAM_METHOD}" \
-  "${TOPN_ARGS[@]}"
+
+python3 test.py --mode batch --model "${MODEL}" --layer-name "${LAYER}" --dataset "${DATASET}" --excel-path "${EXCEL_PATH}" --cam-method gradcam
+python3 test.py --mode batch --model "${MODEL}" --layer-name "${LAYER}" --dataset "${DATASET}" --excel-path "${EXCEL_PATH}" --cam-method gradcamplusplus
+python3 test.py --mode batch --model "${MODEL}" --layer-name "${LAYER}" --dataset "${DATASET}" --excel-path "${EXCEL_PATH}" --cam-method scorecam
+python3 test.py --mode batch --model "${MODEL}" --layer-name "${LAYER}" --dataset "${DATASET}" --excel-path "${EXCEL_PATH}" --cam-method ablationcam
+python3 test.py --mode batch --model "${MODEL}" --layer-name "${LAYER}" --dataset "${DATASET}" --excel-path "${EXCEL_PATH}" --cam-method layercam 

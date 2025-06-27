@@ -23,7 +23,7 @@ def main():
             'temperature': args.temperature,
         }
     elif args.model == 'alzheimer_resnet18':
-        model = load_model(args.checkpoint, device='cuda' if torch.cuda.is_available() else 'cpu')
+        model = load_model(checkpoint_path = "/home/infres/xnguyen-24/cluster_cam/models/alzheimer_resnet18/alzheimer_resnet18.pth", device='cuda' if torch.cuda.is_available() else 'cpu')
         model.eval()
         model_dict = {
             'type': args.model,
