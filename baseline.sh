@@ -1,22 +1,50 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Cấu hình tham số
-MODEL="resnet18"
+# Danh sách các model muốn test
+MODELS=(
+  "resnet34"
+  "resnet50"
+  "resnet101"
+  "resnet152"
+)
+
+# Danh sách các CAM methods baseline (không bao gồm cluster)
+BASELINE_CAM_METHODS=(
+  "gradcam"
+  "gradcamplusplus"
+  "layercam"
+  "scorecam"
+  "ablationcam"
+  "shapleycam"
+)
+
+# Cấu hình chung
 LAYER="layer4"
-DATASET="datasets/imagenet"  # Thư mục chứa ảnh, có thể là đường dẫn đến tập dữ liệu ImageNet hoặc một tập dữ liệu khác
-EXCEL_PATH="results/alzheimer"
-K_VALUES=(30 35 40 45 50 55 60 65 70 75 80 85 90 95 100)    # danh sách các K bạn muốn thử
-# CAM_METHOD="gradcam"  # hoặc grad, score, v.v.
+DATASET="datasets/imagenet"
+BASE_EXCEL_DIR="results/imagenet"
 TOP_N=1000
 
-# Tạo thư mục kết quả (theo MODEL) nếu chưa có
-mkdir -p "$(dirname "${EXCEL_PATH}")"
+# Tạo thư mục chung nếu chưa có
+mkdir -p "$BASE_EXCEL_DIR"
 
+for MODEL in "${MODELS[@]}"; do
+  for CAM in "${BASELINE_CAM_METHODS[@]}"; do
+    echo "==== Testing $MODEL with CAM_METHOD=$CAM ===="
 
-# python3 test.py --mode batch --model "${MODEL}" --layer-name "${LAYER}" --dataset "${DATASET}" --excel-path "${EXCEL_PATH}" --cam-method "${CAM_METHOD}" --top-n "${TOP_N}" 
-# python3 test.py --mode batch --model "${MODEL}" --layer-name "${LAYER}" --dataset "${DATASET}" --excel-path "${EXCEL_PATH}" --cam-method "gradcamplusplus" --top-n "${TOP_N}" 
-# python3 test.py --mode batch --model "${MODEL}" --layer-name "${LAYER}" --dataset "${DATASET}" --excel-path "${EXCEL_PATH}" --cam-method "scorecam" --top-n "${TOP_N}"
-# python3 test.py --mode batch --model "${MODEL}" --layer-name "${LAYER}" --dataset "${DATASET}" --excel-path "${EXCEL_PATH}" --cam-method "ablationcam" --top-n "${TOP_N}"
-# python3 test.py --mode batch --model "${MODEL}" --layer-name "${LAYER}" --dataset "${DATASET}" --excel-path "${EXCEL_PATH}" --cam-method "layercam" --top-n "${TOP_N}"
-python3 test.py --mode batch --model "${MODEL}" --layer-name "${LAYER}" --dataset "${DATASET}" --excel-path "${EXCEL_PATH}" --cam-method "shapleycam" --top-n "${TOP_N}"
+    # Lưu file kết quả riêng biệt cho mỗi cặp model+CAM
+    EXCEL_PATH="${BASE_EXCEL_DIR}/${MODEL}_${CAM}.xlsx"
+
+    python3 test.py \
+      --mode batch \
+      --model "$MODEL" \
+      --layer-name "$LAYER" \
+      --dataset "$DATASET" \
+      --excel-path "$EXCEL_PATH" \
+      --cam-method "$CAM" \
+      --top-n "$TOP_N"
+
+    echo "Results saved to $EXCEL_PATH"
+    echo
+  done
+done
