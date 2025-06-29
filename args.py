@@ -13,10 +13,14 @@ def get_args():
     
     parser.add_argument(
         '--model',
-        choices=['resnet18', 'alzheimer_resnet18'],
-        default='resnet18',
-        help="Chọn kiến trúc model"
+        choices=[
+            'resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152',
+            'alzheimer_resnet18'
+        ],
+        required=True,
+        help='Chọn model để test'
     )
+
     
     parser.add_argument(
         '--layer-name',

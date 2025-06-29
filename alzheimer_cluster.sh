@@ -22,4 +22,5 @@ fi
 
 # Chạy batch test với model alzheimer_resnet18
 
-python3 test.py --mode batch --cam-method cluster --model "${MODEL}" --layer-name "${LAYER}" --dataset "${DATASET}" --excel-path "${EXCEL_PATH}" 
+
+python3 test.py --mode batch --model "${MODEL}" --layer-name "${LAYER}" --dataset "${DATASET}" --excel-path "${EXCEL_PATH}" --k-values "${K_VALUES[@]}" --cam-method cluster --zero-ratio 0.5 --temperature 0.5

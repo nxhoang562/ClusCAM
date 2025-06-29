@@ -1,17 +1,45 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Cấu hình tham số
-MODEL="resnet18"
+# Danh sách các ResNet muốn test
+MODELS=(
+  "resnet34"
+  "resnet50"
+  "resnet101"
+  "resnet152"
+)
+
+# Cấu hình chung
 LAYER="layer4"
-DATASET="datasets/imagenet"  # Thư mục chứa ảnh, có thể là đường dẫn đến tập dữ liệu ImageNet hoặc một tập dữ liệu khác
-EXCEL_PATH="results/imagenet"
-K_VALUES=(30 35 40 45 50 55 60 65 70 75 80 85 90 95 100)    # danh sách các K bạn muốn thử
-CAM_METHOD="cluster"  # hoặc grad, score, v.v.
+DATASET="datasets/imagenet"
+BASE_EXCEL_DIR="results/imagenet"
+K_VALUES=(30 40 50 60 70 75 80 85 90 95 100)
+CAM_METHOD="cluster"
 TOP_N=1000
+ZERO_RATIO=0.5
+TEMPERATURE=0.5
 
-# Tạo thư mục kết quả (theo MODEL) nếu chưa có
-mkdir -p "$(dirname "${EXCEL_PATH}")"
+for MODEL in "${MODELS[@]}"; do
+  echo "==== Testing $MODEL ===="
 
+  # Đường dẫn lưu Excel riêng cho từng model
+  EXCEL_PATH="${BASE_EXCEL_DIR}/${MODEL}_${CAM_METHOD}_zr${ZERO_RATIO}_temp${TEMPERATURE}.xlsx"
+  
+  # Tạo thư mục nếu chưa có
+  mkdir -p "$(dirname "$EXCEL_PATH")"
+  
+  python3 test.py \
+    --mode batch \
+    --model "${MODEL}" \
+    --layer-name "${LAYER}" \
+    --dataset "${DATASET}" \
+    --excel-path "${EXCEL_PATH}" \
+    --k-values "${K_VALUES[@]}" \
+    --cam-method "${CAM_METHOD}" \
+    --top-n "${TOP_N}" \
+    --zero-ratio "${ZERO_RATIO}" \
+    --temperature "${TEMPERATURE}"
 
-python3 test.py --mode batch --model "${MODEL}" --layer-name "${LAYER}" --dataset "${DATASET}" --excel-path "${EXCEL_PATH}" --k-values "${K_VALUES[@]}" --cam-method "${CAM_METHOD}" --top-n "${TOP_N}" --zero-ratio 0.5 --temperature 0.5
+  echo "---- Finished $MODEL, results in $EXCEL_PATH ----"
+  echo
+done
