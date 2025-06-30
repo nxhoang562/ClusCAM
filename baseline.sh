@@ -3,10 +3,7 @@ set -euo pipefail
 
 # Danh sách các model muốn test
 MODELS=(
-  "resnet34"
-  "resnet50"
-  "resnet101"
-  "resnet152"
+"resnet18"
 )
 
 # Danh sách các CAM methods baseline (không bao gồm cluster)
@@ -20,9 +17,8 @@ BASELINE_CAM_METHODS=(
 )
 
 # Cấu hình chung
-LAYER="layer4"
 DATASET="datasets/imagenet"
-BASE_EXCEL_DIR="results/imagenet"
+BASE_EXCEL_DIR="results/imagenet2"
 TOP_N=1000
 
 # Tạo thư mục chung nếu chưa có
@@ -38,7 +34,6 @@ for MODEL in "${MODELS[@]}"; do
     python3 test.py \
       --mode batch \
       --model "$MODEL" \
-      --layer-name "$LAYER" \
       --dataset "$DATASET" \
       --excel-path "$EXCEL_PATH" \
       --cam-method "$CAM" \

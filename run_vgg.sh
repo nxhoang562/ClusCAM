@@ -1,16 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Danh sách các ResNet muốn test
-MODELS=(
-  "resnet50"
-  "resnet101"
-  "resnet152"
-)
+MODELS=("vgg16")
+
 # Cấu hình chung
 DATASET="datasets/imagenet"
 BASE_EXCEL_DIR="results/imagenet"
-K_VALUES=(30 40 50 60 70 75 80 85 90 95 100)
+K_VALUES=(30 40 50 60 70 80 90 100)
 CAM_METHOD="cluster"
 TOP_N=1000
 ZERO_RATIO=0.5

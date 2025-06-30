@@ -29,6 +29,7 @@ def main():
         model = constructor(weights=WeightsEnum.IMAGENET1K_V1)
         model.eval()
         input_size = (224, 224)
+        target_layer = model.layer4  # ResNet sử dụng layer4 cho layer cuối
     elif args.model == 'alzheimer_resnet18':
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         model = load_model(
@@ -36,14 +37,20 @@ def main():
             device=device
         )
         model.eval()
+        target_layer = model.layer4   # Alzheimer ResNet18 sử dụng layer4 cho layer cuối
         input_size = (128, 128)
+    elif args.model == 'vgg16':
+        model = models.vgg16(weights=models.VGG16_Weights.IMAGENET1K_V1)
+        model.eval()
+        input_size = (224, 224)
+        target_layer = model.features[28]  # VGG16 sử dụng features.28 cho layer cuối
     else:
         raise ValueError(f"Model {args.model} không hỗ trợ")
 
     model_dict = {
         'type': args.model,
         'arch': model,
-        'layer_name': args.layer_name,
+        'target_layer': target_layer,
         'input_size': input_size,
         'cam_method': args.cam_method,
         'zero_ratio': args.zero_ratio,
