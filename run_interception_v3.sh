@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MODELS=("vgg16")
+MODELS=("inception_v3")
 
 # Cấu hình chung
 DATASET="datasets/imagenet"
 BASE_EXCEL_DIR="results/imagenet"
-K_VALUES=(30 40 50 60 70 80 90 100)
+K_VALUES=(60 70 80 90 100)
 CAM_METHOD="cluster"
 TOP_N=1000
 ZERO_RATIO=0.5

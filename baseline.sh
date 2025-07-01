@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Danh sách các model muốn test
 MODELS=(
-"resnet18"
+"inception_v3"
 )
 
 # Danh sách các CAM methods baseline (không bao gồm cluster)
@@ -18,7 +18,7 @@ BASELINE_CAM_METHODS=(
 
 # Cấu hình chung
 DATASET="datasets/imagenet"
-BASE_EXCEL_DIR="results/imagenet2"
+BASE_EXCEL_DIR="results/imagenet"
 TOP_N=1000
 
 # Tạo thư mục chung nếu chưa có

@@ -15,7 +15,7 @@ from torchvision import transforms
 from torchvision.models import VGG
 import torch.nn as nn
 
-# Định nghĩa transforms cho ảnh RGB và Grayscale
+
 rgb_transform = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),

@@ -2,6 +2,7 @@ import os
 import torch
 import torchvision.models as models
 from torchvision.models import (
+    inception_v3, Inception_V3_Weights,
     ResNet18_Weights, ResNet34_Weights, ResNet50_Weights,
     ResNet101_Weights, ResNet152_Weights
 )
@@ -44,6 +45,11 @@ def main():
         model.eval()
         input_size = (224, 224)
         target_layer = model.features[28]  # VGG16 sử dụng features.28 cho layer cuối
+    elif args.model == 'inception_v3':
+        model = inception_v3(weights=Inception_V3_Weights.IMAGENET1K_V1)
+        model.eval()
+        input_size = (299, 299)
+        target_layer = model.Mixed_7c  # Inception V3 sử dụng Mixed_   
     else:
         raise ValueError(f"Model {args.model} không hỗ trợ")
 
