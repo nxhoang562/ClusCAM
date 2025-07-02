@@ -8,8 +8,8 @@ from torchvision.models import (
 )
 
 from args import get_args
-# from test_utils import test_single_image, batch_test
-from test_utils import batch_test
+# dùng phiên bản batch của test_utils
+from test_utils_batch import batch_test
 from models.alzheimer_resnet18.alzheimer_resnet18 import load_model
 
 
@@ -29,30 +29,30 @@ def main():
     if args.model in resnet_confs:
         constructor, WeightsEnum = resnet_confs[args.model]
         model = constructor(weights=WeightsEnum.IMAGENET1K_V1)
-        model.eval()
         input_size = (224, 224)
-        target_layer = model.layer4  # ResNet sử dụng layer4 cho layer cuối
+        target_layer = model.layer4
     elif args.model == 'alzheimer_resnet18':
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         model = load_model(
             checkpoint_path="/home/infres/xnguyen-24/cluster_cam/models/alzheimer_resnet18/alzheimer_resnet18.pth",
             device=device
         )
-        model.eval()
-        target_layer = model.layer4   # Alzheimer ResNet18 sử dụng layer4 cho layer cuối
         input_size = (128, 128)
+        target_layer = model.layer4
     elif args.model == 'vgg16':
         model = models.vgg16(weights=models.VGG16_Weights.IMAGENET1K_V1)
-        model.eval()
         input_size = (224, 224)
-        target_layer = model.features[28]  # VGG16 sử dụng features.28 cho layer cuối
+        target_layer = model.features[28]
     elif args.model == 'inception_v3':
         model = inception_v3(weights=Inception_V3_Weights.IMAGENET1K_V1)
-        model.eval()
         input_size = (299, 299)
-        target_layer = model.Mixed_7c  # Inception V3 sử dụng Mixed_   
+        target_layer = model.Mixed_7c
     else:
         raise ValueError(f"Model {args.model} không hỗ trợ")
+
+    model.eval()
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    model = model.to(device)
 
     model_dict = {
         'type': args.model,
@@ -64,23 +64,8 @@ def main():
         'temperature': args.temperature,
     }
 
-    # Chạy chế độ single image
-    if args.mode == 'single':
-        if not args.img_path:
-            raise RuntimeError("--img-path là bắt buộc khi mode='single'")
-
-        drop, inc = test_single_image(
-            model,
-            model_dict,
-            args.img_path,
-            args.save_prefix,
-            cam_method=args.cam_method,
-            num_clusters=args.num_clusters
-        )
-        print(f"Average Drop: {drop:.4f}, Increase Confidence: {inc:.4f}")
-
-    # Chạy chế độ batch
-    else:
+    # Chạy chế độ batch hoặc single
+    if args.mode == 'batch':
         if not args.dataset or not args.excel_path:
             raise RuntimeError("--dataset và --excel-path là bắt buộc khi mode='batch'")
 
@@ -103,8 +88,24 @@ def main():
             args.k_values,
             cam_method=args.cam_method,
             top_n=args.top_n,
-            model_name=args.model, 
+            model_name=args.model,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers
         )
+    else:
+        # Nếu muốn chạy single, vẫn dùng hàm test_single_image cũ
+        from cluster_cam.test_utils import test_single_image
+        if not args.img_path:
+            raise RuntimeError("--img-path là bắt buộc khi mode='single'")
+        drop, inc = test_single_image(
+            model,
+            model_dict,
+            args.img_path,
+            args.save_prefix,
+            cam_method=args.cam_method,
+            num_clusters=args.num_clusters
+        )
+        print(f"Average Drop: {drop:.4f}, Increase Confidence: {inc:.4f}")
 
 
 if __name__ == '__main__':

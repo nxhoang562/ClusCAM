@@ -63,7 +63,6 @@ class AverageIncrease(MetricBase):
             return percentages                                # tensor (N,)
 
 
-
 # import torch
 # import torch.nn as nn
 # from .metric_utils import MetricBase, mix_image_with_saliency

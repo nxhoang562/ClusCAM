@@ -7,7 +7,7 @@ MODELS=(
 )
 # Cấu hình chung
 DATASET="datasets/imagenet"
-BASE_EXCEL_DIR="results/imagenet4"
+BASE_EXCEL_DIR="results/imagenet2"
 K_VALUES=(30 40 50 60 70 75 80 85 90 95 100)
 CAM_METHOD="cluster"
 TOP_N=100
@@ -23,7 +23,7 @@ for MODEL in "${MODELS[@]}"; do
   # Tạo thư mục nếu chưa có
   mkdir -p "$(dirname "$EXCEL_PATH")"
   
-  python3 test.py \
+  python3 test_batch.py \
     --mode batch \
     --model "${MODEL}" \
     --dataset "${DATASET}" \
@@ -33,6 +33,8 @@ for MODEL in "${MODELS[@]}"; do
     --top-n "${TOP_N}" \
     --zero-ratio "${ZERO_RATIO}" \
     --temperature "${TEMPERATURE}" \
+    --batch-size 64 \
+    --num-workers 4
 
   echo "---- Finished $MODEL, results in $EXCEL_PATH ----"
   echo

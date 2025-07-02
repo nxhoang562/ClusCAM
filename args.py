@@ -99,6 +99,18 @@ def get_args():
         default=1.0,
         help="Temperature cho softmax trong ClusterScoreCAM"
     )
+    parser.add_argument(
+        '--batch-size',
+        type=int,
+        default=16,
+        help="Kích thước batch khi chạy chế độ batch"
+    )
+    parser.add_argument(
+        '--num-workers',
+        type=int,
+        default=4,
+        help="Số worker để load dữ liệu trong chế độ batch"
+    )
 
     args = parser.parse_args()
 

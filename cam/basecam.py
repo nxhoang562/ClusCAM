@@ -78,8 +78,8 @@ class BaseCAM(object):
 
         # 3) Register hooks on the chosen layer
         self.target_layer.register_forward_hook(forward_hook)
-        # backward_hook is deprecated in new PyTorch; still works or use register_full_backward_hook
-        self.target_layer.register_backward_hook(backward_hook)
+        
+        self.target_layer.register_full_backward_hook(backward_hook)
 
     def forward(self, input, class_idx=None, retain_graph=False):
         raise NotImplementedError("Must be implemented in subclasses")
