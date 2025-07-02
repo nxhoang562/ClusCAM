@@ -80,7 +80,7 @@ def get_args():
         type=str,
         choices=[
             "cluster", "gradcam", "gradcamplusplus",
-            "layercam", "scorecam", "ablationcam", "shapleycam"
+            "layercam", "scorecam", "ablationcam", "shapleycam", "polyp", "polym", "polypm",
         ],
         default="cluster",
         help="Phương pháp CAM để sử dụng"

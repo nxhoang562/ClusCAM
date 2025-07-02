@@ -12,6 +12,9 @@ from utils import load_image, basic_visualize, list_image_paths
 from metrics.average_drop import AverageDrop
 from metrics.average_increase import AverageIncrease
 from cam.metacam import ClusterScoreCAM
+from cam.polycam import PCAMp, PCAMm, PCAMpm
+
+
 from pytorch_grad_cam import (
     GradCAM, GradCAMPlusPlus, LayerCAM, ScoreCAM,
     AblationCAM, ShapleyCAM
@@ -77,6 +80,29 @@ CAM_FACTORY = {
     "scorecam": lambda md, **kw: ScoreCAM(model=md["arch"], target_layers=[md["target_layer"]], **kw),
     "ablationcam": lambda md, **kw: AblationCAM(model=md["arch"], target_layers=[md["target_layer"]], **kw),
     "shapleycam": lambda md, **kw: ShapleyCAM(model=md["arch"], target_layers=[md["target_layer"]], **kw),
+    
+     "polyp": lambda md, **kw: PCAMp(
+        model=md["arch"],
+        target_layer_list=md.get("target_layer_list"),
+        batch_size=md.get("batch_size", 32),
+        intermediate_maps=md.get("intermediate_maps", False),
+        lnorm=md.get("lnorm", True)
+    ),
+    "polym": lambda md, **kw: PCAMm(
+        model=md["arch"],
+        target_layer_list=md.get("target_layer_list"),
+        batch_size=md.get("batch_size", 32),
+        intermediate_maps=md.get("intermediate_maps", False),
+        lnorm=md.get("lnorm", True)
+    ),
+    "polypm": lambda md, **kw: PCAMpm(
+        model=md["arch"],
+        target_layer_list=md.get("target_layer_list"),
+        batch_size=md.get("batch_size", 32),
+        intermediate_maps=md.get("intermediate_maps", False),
+        lnorm=md.get("lnorm", True)
+    ),
+    
 }
 
 
@@ -141,7 +167,10 @@ def batch_test(
             cam = CAM_FACTORY[cam_method](model_dict)
 
         # 4. Lặp batch
-        for batch_imgs, batch_paths in loader:
+        num_batches = len(loader)
+        for batch_idx, (batch_imgs, batch_paths) in enumerate(loader, start=1):
+            print(f"[{cam_method.upper()}] Model={model_name} | Sheet={sheet_name} | Batch {batch_idx}/{num_batches}")
+            
             batch_imgs = batch_imgs.to(device)
             # Predict batch
             with torch.no_grad():
@@ -150,14 +179,25 @@ def batch_test(
 
             # Tính saliency maps
             if cam_method == "cluster":
-                # Fallback per-sample để tránh OOM
                 sal_list = []
-                for img, cls in zip(batch_imgs, preds):
-                    sal = cam(img.unsqueeze(0), class_idx=cls)
+                for i, (img, cls) in enumerate(zip(batch_imgs, preds), start=1):
+                    print(f"    Sample {i}/{batch_imgs.size(0)}: computing CAM for class {int(cls)}")
+                    sal = cam(img.unsqueeze(0), class_idx=int(cls))
                     if sal.dim() == 3:
                         sal = sal.unsqueeze(1)
                     sal_list.append(sal.cpu())
-                sal_batch = torch.cat(sal_list, dim=0).to(device)  # (B,1,H,W)
+                sal_batch = torch.cat(sal_list, dim=0).to(device)
+            elif cam_method in ("polyp", "polym", "polypm"):
+                sal_list = []
+                for i, (img, cls) in enumerate(zip(batch_imgs, preds), start=1):
+                    print(f"    Sample {i}/{batch_imgs.size(0)}: PolyCAM {cam_method} for class {int(cls)}")
+                    maps = cam(img.unsqueeze(0), class_idx=int(cls))
+                    sal = maps[-1] if isinstance(maps, (list, tuple)) else maps
+                    if sal.dim() == 3:
+                        sal = sal.unsqueeze(1)
+                    sal_list.append(sal.cpu())
+                sal_batch = torch.cat(sal_list, dim=0).to(device)
+                
             else:
                 targets = [ClassifierOutputTarget(int(p)) for p in preds]
                 sal_np = cam(input_tensor=batch_imgs, targets=targets)
