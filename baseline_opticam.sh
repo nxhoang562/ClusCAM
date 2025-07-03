@@ -13,7 +13,7 @@ MODELS=(
 # Danh sách CAM methods muốn test
 # Ví dụ: polyp, polym, polypm, gradcam, scorecam, cluster…
 BASELINE_CAM_METHODS=(
-  "polypm"
+  "opticam"
 )
 
 # Cấu hình chung

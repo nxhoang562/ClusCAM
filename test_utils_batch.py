@@ -14,6 +14,9 @@ from metrics.average_increase import AverageIncrease
 from cam.metacam import ClusterScoreCAM
 from cam.polycam import PCAMp, PCAMm, PCAMpm
 
+from torch.autograd import Variable
+from cam.opticam import Basic_OptCAM, Preprocessing_Layer
+
 
 from pytorch_grad_cam import (
     GradCAM, GradCAMPlusPlus, LayerCAM, ScoreCAM,
@@ -103,6 +106,18 @@ CAM_FACTORY = {
         lnorm=md.get("lnorm", True)
     ),
     
+     "opticam": lambda md, **kw: Basic_OptCAM(
+        model=md["arch"],
+        device=kw.get("device"),
+        target_layer=md["target_layer"],
+        max_iter=md.get("max_iter", 50),
+        learning_rate=md.get("learning_rate", 0.1),
+        name_f=md.get("name_f", "logit_predict"),
+        name_loss=md.get("name_loss", "norm"),
+        name_norm=md.get("name_norm", "max_min"),
+        name_mode=md.get("name_mode", "resnet")
+    ),
+    
 }
 
 
@@ -164,7 +179,7 @@ def batch_test(
         if cam_method == "cluster":
             cam = CAM_FACTORY["cluster"](model_dict, num_clusters=c)
         else:
-            cam = CAM_FACTORY[cam_method](model_dict)
+            cam = CAM_FACTORY[cam_method](model_dict, device=device,)
 
         # 4. Lặp batch
         num_batches = len(loader)
@@ -197,7 +212,18 @@ def batch_test(
                         sal = sal.unsqueeze(1)
                     sal_list.append(sal.cpu())
                 sal_batch = torch.cat(sal_list, dim=0).to(device)
-                
+            
+            elif cam_method == "opticam":
+                sal_list = []
+                # cam đã được khởi tạo bên trên với CAM_FACTORY["optcam"]
+                for i, (img, cls) in enumerate(zip(batch_imgs, preds), start=1):
+                    # mỗi lần sẽ trả về (saliency_map, masked_image)
+                    sal, _ = cam( img.unsqueeze(0), torch.tensor([int(cls)], device=device) )
+                    # Đảm bảo sal có shape (1,1,H,W)
+                    if sal.dim() == 3:
+                        sal = sal.unsqueeze(1)
+                    sal_list.append(sal.cpu())
+                sal_batch = torch.cat(sal_list, dim=0).to(device)   
             else:
                 targets = [ClassifierOutputTarget(int(p)) for p in preds]
                 sal_np = cam(input_tensor=batch_imgs, targets=targets)
