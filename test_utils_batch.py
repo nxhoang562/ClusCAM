@@ -7,12 +7,14 @@ from torchvision import transforms
 from torchvision.models import VGG
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
+import torch.nn.functional as F
 
 from utils import load_image, basic_visualize, list_image_paths
 from metrics.average_drop import AverageDrop
 from metrics.average_increase import AverageIncrease
 from cam.metacam import ClusterScoreCAM
 from cam.polycam import PCAMp, PCAMm, PCAMpm
+from cam.recipro_cam import ReciproCam
 
 from torch.autograd import Variable
 from cam.opticam import Basic_OptCAM, Preprocessing_Layer
@@ -117,6 +119,11 @@ CAM_FACTORY = {
         name_norm=md.get("name_norm", "max_min"),
         name_mode=md.get("name_mode", "resnet")
     ),
+     "reciprocam": lambda md, **kw: ReciproCam(
+        model=md["arch"],
+        device=kw.get("device"),
+        target_layer_name=md.get("target_layer_name", None)
+    )
     
 }
 
@@ -224,6 +231,24 @@ def batch_test(
                         sal = sal.unsqueeze(1)
                     sal_list.append(sal.cpu())
                 sal_batch = torch.cat(sal_list, dim=0).to(device)   
+            elif cam_method == "reciprocam":
+                sal_list = []
+                for i, (img, cls) in enumerate(zip(batch_imgs, preds), start=1):
+                 # chạy ReciproCam cho mỗi ảnh
+                    sal_map, idx = cam(img.unsqueeze(0), index=int(cls))
+                    # sal_map: tensor (h,w)
+                     # chuyển thành (1,1,h,w)
+                    if isinstance(sal_map, list):
+                        # nếu trả về list (BS>1), lấy phần tử đầu
+                        sal_map = sal_map[0]
+                    sal = torch.from_numpy(sal_map) if isinstance(sal_map, np.ndarray) else sal_map
+                    sal = sal.unsqueeze(0).unsqueeze(0)  # shape = (1,1,H,W)
+                    sal_list.append(sal.cpu())
+                sal_batch = torch.cat(sal_list, dim=0).to(device)
+                
+                H, W = batch_imgs.shape[2], batch_imgs.shape[3]
+                sal_batch = F.interpolate(sal_batch, size=(H, W),
+                               mode='bilinear', align_corners=False)
             else:
                 targets = [ClassifierOutputTarget(int(p)) for p in preds]
                 sal_np = cam(input_tensor=batch_imgs, targets=targets)
