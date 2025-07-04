@@ -3,7 +3,6 @@ set -euo pipefail
 
 # Danh sách các ResNet muốn test (không có dấu phẩy)
 MODELS=(
-  "resnet18"
   "resnet34"
   "resnet50"
   "resnet101"
@@ -37,7 +36,7 @@ for MODEL in "${MODELS[@]}"; do
       --excel-path "$EXCEL_PATH" \
       --cam-method "$CAM" \
       --top-n "$TOP_N" \
-      --batch-size 64 \
+      --batch-size 32 \
       --num-workers 4
 
     echo "Results saved to $EXCEL_PATH"

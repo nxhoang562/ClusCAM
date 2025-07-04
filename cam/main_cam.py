@@ -21,7 +21,7 @@ class ClusterScoreCAM(BaseCAM):
         num_clusters=10,
         zero_ratio=0.5,
         temperature_dict=None,
-        temperature=1.0
+        temperature=0.5
     ):
         super().__init__(model_dict)
         self.K = num_clusters
@@ -59,7 +59,7 @@ class ClusterScoreCAM(BaseCAM):
 
         # 4) Flatten upsampled maps và clustering
         flat_maps = up_maps.reshape(nc, -1).detach().cpu().numpy()  # (nc, h*w)
-        kmeans = KMeans(n_clusters=self.K, random_state=0)
+        kmeans = KMeans(n_clusters=self.K, init='k-means++', random_state=0)
         kmeans.fit(flat_maps)
         # cluster centers shape (K, h*w) -> (K, h, w)
         rep_maps = torch.from_numpy(
@@ -80,7 +80,7 @@ class ClusterScoreCAM(BaseCAM):
             lowest = torch.argsort(diffs)[:num_zero]
             diffs[lowest] = float('-inf')
 
-        # 7) Softmax với nhiệt độ class
+        # 7) Softmax class
         T = self.temperature_dict.get(class_idx, self.temperature)
         weights = F.softmax(diffs / T, dim=0)
 
