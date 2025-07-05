@@ -21,7 +21,7 @@ class ClusterScoreCAM(BaseCAM):
         num_clusters=10,
         zero_ratio=0.5,
         temperature_dict=None,
-        temperature=1.0
+        temperature=0.5
     ):
         super().__init__(model_dict)
         self.K = num_clusters
@@ -67,6 +67,10 @@ class ClusterScoreCAM(BaseCAM):
         rep_maps = torch.from_numpy(
             kmeans.cluster_centers_.reshape(self.K, h, w)
         ).to(activations.device)
+        
+        #them de visualize 
+        self.rep_maps = rep_maps  # tensor (K, h, w)
+        self.base_score = base_score  # cũng lưu nếu cần debug
 
         # 5) Tính score difference mỗi mask
         diffs = torch.zeros(self.K, device=activations.device)
@@ -97,6 +101,9 @@ class ClusterScoreCAM(BaseCAM):
         if mn == mx:
             return None
         sal = (sal - mn) / (mx - mn)
+        
+        self.last_saliency = sal  # tensor (1,1,h,w)
+
         return sal
 
     def __call__(self, input, class_idx=None, retain_graph=False):

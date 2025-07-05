@@ -18,10 +18,10 @@ class ClusterScoreCAM(BaseCAM):
     def __init__(
         self,
         model_dict,
-        num_clusters=10,
-        zero_ratio=0.5,
-        temperature_dict=None,
-        temperature=0.5
+        num_clusters: int = 10,
+        zero_ratio: float = 0.5,
+        temperature_dict: dict | None = None,
+        temperature: float = 0.5
     ):
         super().__init__(model_dict)
         self.K = num_clusters

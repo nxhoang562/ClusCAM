@@ -7,8 +7,8 @@ MODELS=(
 )
 # Cấu hình chung
 DATASET="datasets/imagenet"
-BASE_EXCEL_DIR="results/imagenet2"
-K_VALUES=(30 40 50 60 70 75 80 85 90 95 100)
+BASE_EXCEL_DIR="results/imagenet3"
+K_VALUES=(30 40 50)
 CAM_METHOD="cluster"
 TOP_N=100
 ZERO_RATIO=0.5
@@ -34,7 +34,8 @@ for MODEL in "${MODELS[@]}"; do
     --zero-ratio "${ZERO_RATIO}" \
     --temperature "${TEMPERATURE}" \
     --batch-size 64 \
-    --num-workers 4
+    --num-workers 4 \
+    --mode-type validation \
 
   echo "---- Finished $MODEL, results in $EXCEL_PATH ----"
   echo

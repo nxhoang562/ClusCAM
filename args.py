@@ -20,20 +20,6 @@ def get_args():
         required=True,
         help='Chọn model để test'
     )
-
-    
-    parser.add_argument(
-        '--layer-name',
-        default='layer4',
-        help="Tên layer để tính CAM"
-    )
-    
-    parser.add_argument(
-        '--num-clusters',
-        type=int,
-        default=5,
-        help="(chỉ dùng khi --cam-method=cluster) Số cluster cho ClusterScoreCAM"
-    )
     
     parser.add_argument(
         '--img-path',
@@ -111,6 +97,10 @@ def get_args():
         default=4,
         help="Số worker để load dữ liệu trong chế độ batch"
     )
+    
+    parser.add_argument('--mode-type', choices=['test','validation'], default='test')
+    parser.add_argument('--start-idx', type=int)
+    parser.add_argument('--end-idx', type=int)
 
     args = parser.parse_args()
 

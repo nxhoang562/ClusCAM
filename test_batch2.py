@@ -89,7 +89,10 @@ def main():
             top_n=args.top_n,
             model_name=args.model,
             batch_size=args.batch_size,
-            num_workers=args.num_workers
+            num_workers=args.num_workers, 
+            mode_type=args.mode_type,
+            start_idx=args.start_idx,
+            end_idx=args.end_idx
         )
     else:
         # Nếu muốn chạy single, vẫn dùng hàm test_single_image cũ
