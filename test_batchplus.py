@@ -9,7 +9,7 @@ from torchvision.models import (
 from args import get_args
 from models.alzheimer_resnet18.alzheimer_resnet18 import load_model
 
-from test_utils_batch2 import batch_test
+from test_utils_batch2plus import batch_test
 import torch.nn as nn
 
 def main():

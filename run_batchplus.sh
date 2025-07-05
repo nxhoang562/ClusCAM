@@ -18,7 +18,7 @@ TOP_N=3000
 ZERO_RATIO=0.5
 TEMPERATURE=0.5
 MODE_TYPE="validation"
-BATCH_SIZE=256
+BATCH_SIZE=64
 
 for MODEL in "${MODELS[@]}"; do
   echo "==== $MODE_TYPE with $MODEL ===="
@@ -29,7 +29,7 @@ for MODEL in "${MODELS[@]}"; do
   # Tạo thư mục nếu chưa có
   mkdir -p "$(dirname "$EXCEL_PATH")"
   
-  python3 test_batch2.py \
+  python3 test_batchplus.py \
     --mode batch \
     --model "${MODEL}" \
     --dataset "${DATASET}" \

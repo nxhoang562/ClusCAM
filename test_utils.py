@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 from utils import load_image, basic_visualize, list_image_paths
-from cam.main_clusterscorecam import ClusterScoreCAM
+from cluster_cam.cam.main_cam import ClusterScoreCAM
 from pytorch_grad_cam import (
     GradCAM, GradCAMPlusPlus, LayerCAM, ScoreCAM,
     AblationCAM, ShapleyCAM

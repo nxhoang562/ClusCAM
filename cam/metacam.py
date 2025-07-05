@@ -62,7 +62,8 @@ class ClusterScoreCAM(BaseCAM):
 
         # 4) Flatten upsampled maps và clustering
         flat_maps = up_maps.reshape(nc, -1).detach().cpu().numpy()  # (nc, h*w)
-        kmeans = KMeans(n_clusters=self.K, random_state=0)
+        kmeans = KMeans(n_clusters=self.K, init='k-means++', random_state=0)
+        print(f"[ClusterScoreCAM] Running KMeans++ with {self.K} clusters...")
         kmeans.fit(flat_maps)
         rep_maps = torch.from_numpy(
             kmeans.cluster_centers_.reshape(self.K, h, w)
@@ -105,6 +106,39 @@ class ClusterScoreCAM(BaseCAM):
         self.last_saliency = sal  # tensor (1,1,h,w)
 
         return sal
+# khong chay voi batch
+    # def __call__(self, input, class_idx=None, retain_graph=False):
+    #     return self.forward(input, class_idx, retain_graph)
+    def __call__(self, input: torch.Tensor, class_idx=None, retain_graph=False):
+        """
+         Hỗ trợ cả single (1,C,H,W) và batch (B,C,H,W).
+         Nếu batch, sẽ gọi forward() cho từng sample và
+         trả về saliency maps dạng (B,1,H,W).
+         """
+        # batch đầu tiên
+        if input.dim() == 4 and input.size(0) > 1:
+            B = input.size(0)
+            print(f"[ClusterScoreCAM] Detected batch size: {B}")
+            # chuyển class_idx về list có độ dài B
+            if class_idx is None:
+                cls_list = [None] * B
+            elif isinstance(class_idx, torch.Tensor):
+                cls_list = class_idx.detach().cpu().tolist()
+            elif isinstance(class_idx, (list, tuple)):
+                cls_list = list(class_idx)
+            else:
+                # cùng 1 label cho tất cả
+                cls_list = [int(class_idx)] * B
 
-    def __call__(self, input, class_idx=None, retain_graph=False):
+            outs = []
+            for i in range(B):
+                print(f"[ClusterScoreCAM] Processing sample {i+1}/{B}, class_idx={cls_list[i]}")
+                inp_i = input[i : i+1]
+                ci = cls_list[i]
+                sal_i = self.forward(inp_i, ci, retain_graph)
+                # forward trả về (1,1,H,W)
+                outs.append(sal_i)
+            # ghép lại thành (B,1,H,W)
+            return torch.cat(outs, dim=0)
+        # không phải batch, gọi bình thường
         return self.forward(input, class_idx, retain_graph)

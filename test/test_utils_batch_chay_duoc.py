@@ -9,7 +9,6 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 import torch.nn.functional as F
 
-
 from utils import load_image, basic_visualize, list_image_paths
 from metrics.average_drop import AverageDrop
 from metrics.average_increase import AverageIncrease
@@ -19,6 +18,7 @@ from cam.recipro_cam import ReciproCam
 
 from torch.autograd import Variable
 from cam.opticam import Basic_OptCAM, Preprocessing_Layer
+
 
 from pytorch_grad_cam import (
     GradCAM, GradCAMPlusPlus, LayerCAM, ScoreCAM,
@@ -38,6 +38,7 @@ gray_transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.5], std=[0.5])
 ])
+
 
 def get_transform_for_model(model: nn.Module) -> transforms.Compose:
     if hasattr(model, "conv1"):
@@ -123,6 +124,7 @@ CAM_FACTORY = {
         device=kw.get("device"),
         target_layer_name=md.get("target_layer_name", None)
     )
+    
 }
 
 
@@ -139,11 +141,12 @@ def batch_test(
     model_name: str | None = None,
     batch_size: int = 16,
     num_workers: int = 4, 
-    mode: str = "test"
+    mode: str = "test" # test or validation 
 ):
     """
-    Thực thi batch_test với tính toán metric ở cấp batch (GPU chạy batch).
-    mode: "test" (AverageDrop/Increase) hoặc "validation" (mean/std shift)
+    - Vectorized batch_test: tính CAM per-batch (với fallback per-sample cho cluster CAM) và metrics batch.
+    - mode="test": tính metrics AverageDrop/Increase
+    - mode="validation": tính mean_shift, std_shift cho mỗi ảnh
     """
     if model_name is None:
         raise ValueError("batch_test: cần truyền model_name (chuỗi)")
@@ -151,27 +154,34 @@ def batch_test(
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = model.to(device).eval()
 
+    # 1. Lấy danh sách ảnh
     all_paths = list_image_paths(dataset)
     if not all_paths:
         raise RuntimeError(f"No images found in {dataset}")
+    
     if mode == "validation" and cam_method != "cluster":
-        raise ValueError("Validation mode chỉ hỗ trợ 'cluster' CAM")
-
-    # Lọc paths theo tham số
+        raise ValueError(f"Validation mode is only supported for 'cluster' CAM. Got cam_method='{cam_method}'")
+    
     if start_idx is not None or end_idx is not None:
         image_paths = all_paths[start_idx:end_idx]
+        
     elif top_n is not None:
         image_paths = all_paths[:top_n]
     else:
-        image_paths = all_paths
+        image_paths = all_paths 
 
-    # DataLoader
+    # 2. Dataset & DataLoader
     transform = get_transform_for_model(model)
     ds = ImageFolderDataset(image_paths, transform)
-    loader = DataLoader(ds, batch_size=batch_size, shuffle=False,
-                        num_workers=num_workers, pin_memory=True)
+    loader = DataLoader(
+        ds,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=True
+    )
 
-    # Chuẩn bị file Excel
+    # 3. Chuẩn bị file Excel
     if os.path.isdir(excel_path):
         excel_dir = excel_path; excel_filename = "results.xlsx"
     else:
@@ -179,90 +189,144 @@ def batch_test(
     model_dir = os.path.join(excel_dir, model_name)
     os.makedirs(model_dir, exist_ok=True)
     full_path = os.path.join(model_dir, excel_filename)
-
+    
+    
+    # Với cluster mode có nhiều K, còn các CAM khác chỉ 1 lần
     ks = k_values if cam_method == "cluster" else [None]
     for c in ks:
         sheet_name = cam_method if c is None else f"{cam_method}_K{c}"
         mode_open = "a" if os.path.exists(full_path) else "w"
 
-        # cam = CAM_FACTORY[cam_method](model_dict, num_clusters=c, device=device)
+        # all_paths_out, all_preds, all_drops, all_incs = [], [], [], []
+
+        # Khởi tạo CAM một lần
         if cam_method == "cluster":
             cam = CAM_FACTORY["cluster"](model_dict, num_clusters=c)
         else:
-            cam = CAM_FACTORY[cam_method](model_dict, device=device)
+            cam = CAM_FACTORY[cam_method](model_dict, device=device,)
             
+        
+        #Dữ liệu để lưu kết quả 
         records = []
+        img_counter = 0
 
-        # Xử lý từng batch
-        for batch_idx, (batch_imgs, _) in enumerate(loader, start=1):
+        # 4. Lặp batch
+        for batch_idx, (batch_imgs, batch_paths) in enumerate(loader, start=1):
+            print(f"[{cam_method.upper()}] {cam_method} | Model={model_name} | k = {c} | Batch {batch_idx}/{len(loader)}")
             batch_imgs = batch_imgs.to(device)
+            # Predict batch
             with torch.no_grad():
                 logits = model(batch_imgs)
                 preds = logits.argmax(1)
+            
+            # Với mỗi ảnh trong batch
+            for i in range(batch_imgs.size(0)):
+                img_counter += 1
+                img = batch_imgs[i:i+1]
+                path = batch_paths[i]
+                cls = int(preds[i])
+                print(f"  Processing image {img_counter}/{len(image_paths)}: {path} (class={cls})")
+                
+            #1, Tính saliency maps
+                if cam_method == "cluster":
+                    sal = cam(img, class_idx=cls)
+                elif cam_method in ("polyp", "polym", "polypm"):
+                    maps = cam(img, class_idx=cls)
+                    sal = maps[-1] if isinstance(maps, (list, tuple)) else maps
+                    if sal.dim() == 3:
+                        sal = sal.unsqueeze(1)
+                
+                elif cam_method == "opticam":
+                    sal, _ = cam(img, torch.tensor([cls], device=device))
+                    if sal.dim() == 3:
+                        sal = sal.unsqueeze(1)
 
-            # CAM cho batch
-            if cam_method == "cluster":
-                cls_list = preds.detach().cpu().tolist()
-                sal_batch = cam(batch_imgs, class_idx=cls_list)  # (B,1,H,W)
-            else:
-                # TODO: hỗ trợ batch cho các CAM khác tương tự
-                raise NotImplementedError("Batch CAM chỉ implement cho 'cluster' hiện tại")
+                elif cam_method == "reciprocam":
+                    sal_map, _ = cam(img, index=cls)
+                    if isinstance(sal_map, list):
+                        sal_map = sal_map[0]
+                    sal = torch.from_numpy(sal_map) if isinstance(sal_map, np.ndarray) else sal_map
+                    sal = sal.unsqueeze(0).unsqueeze(0)
+                    H, W = img.size(2), img.size(3)
+                    sal = F.interpolate(sal, size=(H, W), mode='bilinear', align_corners=False)
 
-            if mode == "test":
-                sal3 = sal_batch.expand(-1, batch_imgs.size(1), -1, -1)
-                drop_b = AverageDrop()(model=model,
-                                       test_images=batch_imgs,
-                                       saliency_maps=sal3,
-                                       class_idx=preds,
-                                       device=device,
-                                       apply_softmax=True,
-                                       return_mean=True).item()
-                inc_b = AverageIncrease()(model=model,
-                                          test_images=batch_imgs,
-                                          saliency_maps=sal3,
-                                          class_idx=preds,
-                                          device=device,
-                                          apply_softmax=True,
-                                          return_mean=True).item()
-                print(f"[{cam_method.upper()}] k={c} Batch {batch_idx}/{len(loader)} — drop: {drop_b:.4f}, inc: {inc_b:.4f}")
-                records.append({
-                    "batch_index": batch_idx,
-                    "average_drop": drop_b,
-                    "increase_confidence": inc_b
-                })
-            else:
-                orig = logits[torch.arange(preds.size(0)), preds]
-                masked_imgs = batch_imgs * sal_batch
-                with torch.no_grad():
-                    lm = model(masked_imgs)
-                masked_sc = lm[torch.arange(preds.size(0)), preds]
-                shifts = masked_sc - orig
-                mean_shift = shifts.mean().item()
-                std_shift = shifts.std().item()
-                print(f"[{cam_method.upper()}] k={c} Batch {batch_idx}/{len(loader)} — shift μ={mean_shift:.4f}, σ={std_shift:.4f}")
-                records.append({
-                    "batch_index": batch_idx,
-                    "mean_shift": mean_shift,
-                    "std_shift": std_shift
-                })
-
-        # Xuất kết quả
+                else:
+                    targets = [ClassifierOutputTarget(cls)]
+                    sal_np = cam(input_tensor=img, targets=targets)
+                    sal = torch.from_numpy(sal_np)
+                    if sal.dim() == 3:
+                        sal = sal.unsqueeze(1)
+                    sal = sal.to(device)
+                
+                # Compute records
+                if mode == "validation":
+                    # Tính mean shift và std shift
+                    orig_score = logits[i, cls].item()
+                    masked = img * sal
+                    with torch.no_grad():
+                        lm = model(masked)
+                    masked_score = lm[0, cls].item()
+                    shift = masked_score - orig_score
+                    print(f"    Shift: {shift:.4f}")
+                    records.append({
+                        "image_path": path,
+                        "top1_index": cls,
+                        "shift": shift
+                    })
+                else:
+                    sal3 = sal.expand(-1, batch_imgs.size(1), -1, -1)
+                    drop = AverageDrop()(model=model,
+                                        test_images=img,
+                                        saliency_maps=sal3,
+                                        class_idx=torch.tensor([cls], device=device),
+                                        device=device,
+                                        apply_softmax=True,
+                                        return_mean=True).item()
+                    inc = AverageIncrease()(model=model,
+                                            test_images=img,
+                                            saliency_maps=sal3,
+                                            class_idx=torch.tensor([cls], device=device),
+                                            device=device,
+                                            apply_softmax=True,
+                                            return_mean=True).item()
+                    print(f"    Drop: {drop:.4f}, Increase: {inc:.4f}")
+                    records.append({
+                        "image_path": path,
+                        "top1_index": cls,
+                        "average_drop": drop,
+                        "increase_confidence": inc
+                    })
+                
+                
+            
+            
+        # 5. Xuất Excel
         df = pd.DataFrame(records)
         if mode == "validation":
-            overall_mean = df["mean_shift"].mean()
-            overall_std = df["std_shift"].mean()
-            summary = pd.DataFrame([{"batch_index": "ALL", "mean_shift": overall_mean, "std_shift": overall_std}])
+            mean_shift = df["shift"].mean()
+            std_shift = df["shift"].std()
+            summary = pd.DataFrame([{
+                "image_path": "AVERAGE",
+                "top1_index": "",
+                "shift": mean_shift,
+                "std_shift": std_shift
+            }])
             out_df = pd.concat([summary, df], ignore_index=True)
-            print(f"Validation summary — mean shift: {overall_mean:.4f}, mean std shift: {overall_std:.4f}")
+            print(f"Summary shift — mean: {mean_shift:.4f}, std: {std_shift:.4f}")
         else:
-            overall_drop = df["average_drop"].mean()
-            overall_inc  = df["increase_confidence"].mean()
-            summary = pd.DataFrame([{"batch_index": "ALL", "average_drop": overall_drop, "increase_confidence": overall_inc}])
+            avg_drop = df["average_drop"].mean()
+            avg_inc = df["increase_confidence"].mean()
+            summary = pd.DataFrame([{
+                "image_path": "AVERAGE",
+                "top1_index": "",
+                "average_drop": avg_drop,
+                "increase_confidence": avg_inc
+            }])
             out_df = pd.concat([summary, df], ignore_index=True)
-            print(f"Test summary — avg drop: {overall_drop:.4f}, avg increase: {overall_inc:.4f}")
+            print(f"Summary metrics — drop: {avg_drop:.4f}, increase: {avg_inc:.4f}")
 
         with pd.ExcelWriter(full_path, engine="openpyxl", mode=mode_open,
                             if_sheet_exists=("replace" if mode_open=="a" else None)) as writer:
             out_df.to_excel(writer, sheet_name=sheet_name, index=False)
 
-        print(f"Saved sheet {sheet_name} to {full_path}")
+        print(f"Saved sheet {sheet_name} to {full_path}")   
