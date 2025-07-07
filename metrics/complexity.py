@@ -1,10 +1,9 @@
 import torch
 import torch.nn as nn
-from .utils import mix_image_and_saliency, BaseMetric
-from utils import AttributionMethod
+from .metric_utils import mix_image_with_saliency, MetricBase, AttributionMethod
 
 
-class Complexity(BaseMetric):
+class Complexity( MetricBase):
     def __init__(self):
         super().__init__("complexity")
         pass
@@ -26,8 +25,12 @@ class Complexity(BaseMetric):
         res = torch.zeros(
             saliency_maps_clone.shape[0], device=saliency_maps_clone.device
         )
+        
+        # H, W = saliency_maps_clone.shape[-2], saliency_maps_clone.shape[-1]
+        
         for i in range(saliency_maps_clone.shape[0]):
-            res[i] = torch.linalg.vector_norm(saliency_maps_clone[i], ord=1)
+            # print(f"Processing saliency map {i+1}/{saliency_maps_clone}")
+            res[i] = torch.mean(saliency_maps_clone[i]) 
         if return_mean:
             res = res.mean()
         return res.item()
