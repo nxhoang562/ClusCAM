@@ -4,16 +4,18 @@ import pandas as pd
 import numpy as np
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 from utils import load_image, basic_visualize, list_image_paths
-from cluster_cam.cam.main_cam import ClusterScoreCAM
 from pytorch_grad_cam import (
     GradCAM, GradCAMPlusPlus, LayerCAM, ScoreCAM,
     AblationCAM, ShapleyCAM
 )
 from metrics.average_drop import AverageDrop
 from metrics.average_increase import AverageIncrease
+from metrics.coherency import Coherency
+from metrics.complexity import Complexity
 from torchvision import transforms
 from torchvision.models import VGG
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 rgb_transform = transforms.Compose([
@@ -64,12 +66,6 @@ def predict_top1_indices(image_paths, model, device):
 
 # Mapping giữa tên method và hàm khởi tạo tương ứng
 CAM_FACTORY = {
-    "cluster": lambda md, num_clusters=None: ClusterScoreCAM(
-        md,
-        num_clusters=num_clusters,
-        zero_ratio=md.get("zero_ratio", 0.5),
-        temperature=md.get("temperature", 1.0)
-    ),
     "gradcam": lambda md, **kw: GradCAM(
         model=md["arch"],
         target_layers=[md["target_layer"]],
@@ -130,12 +126,20 @@ def test_single_image(
     sal3 = sal_map.unsqueeze(0).repeat(1, inp.size(1), 1, 1)
     drop_val = AverageDrop()(model=model, test_images=inp, saliency_maps=sal3, class_idx=target_cls, device=device, apply_softmax=True, return_mean=True)
     inc_val = AverageIncrease()(model=model, test_images=inp, saliency_maps=sal3, class_idx=target_cls, device=device, apply_softmax=True, return_mean=True)
+    
     return drop_val, inc_val
 
 
 def batch_test(
-    model, model_dict, dataset, excel_path,
-    k_values, cam_method="cluster", top_n=None,
+    model,
+    model_dict,
+    dataset,
+    excel_path,
+    k_values,
+    cam_method="cluster",
+    top_n=None,
+    start_idx=None,
+    end_idx=None,
     model_name=None
 ):
     if model_name is None:
@@ -146,7 +150,12 @@ def batch_test(
     all_paths = list_image_paths(dataset)
     if not all_paths:
         raise RuntimeError(f"No images found in {dataset}")
-    image_paths = all_paths if top_n is None else all_paths[:top_n]
+    
+ # Lấy ảnh theo start/end nếu có, ngược lại dùng top_n hoặc toàn bộ
+    if start_idx is not None and end_idx is not None:
+        image_paths = all_paths[start_idx:end_idx]
+    else:
+        image_paths = all_paths if top_n is None else all_paths[:top_n]
     top1_idxs = predict_top1_indices(image_paths, model, device)
     if os.path.isdir(excel_path):
         excel_dir = excel_path
@@ -161,7 +170,7 @@ def batch_test(
     for c in ks:
         info = f"method={cam_method}" + (f", K={c}" if c else "")
         print(f"\n=== Testing {info} ===")
-        drops, incs = [], []
+        drops, incs, cohers, comps, adccs = [], [], [], [], []
         if cam_method == "cluster":
             cam = CAM_FACTORY["cluster"](model_dict, num_clusters=c)
         else:
@@ -175,16 +184,49 @@ def batch_test(
             else:
                 saliency_np = cam(input_tensor=img_tensor, targets=[ClassifierOutputTarget(cls)])
                 sal_map = torch.from_numpy(saliency_np).cpu().squeeze(0)
-            sal3 = sal_map.unsqueeze(0).repeat(1, img_tensor.size(1), 1, 1)
-            drops.append(AverageDrop()(model, img_tensor, sal3, cls, device, True))
-            incs.append(AverageIncrease()(model, img_tensor, sal3, cls, device, True))
+            sal3 = sal_map.unsqueeze(0).repeat(1, img_tensor.size(1), 1, 1).to(device)
+            drop = AverageDrop()(model, img_tensor, sal3, cls, device, True)
+            inc = AverageIncrease()(model, img_tensor, sal3, cls, device, True)
+            
+            
+            coher = Coherency()(
+                model=model,
+                test_images=img_tensor,
+                saliency_maps=sal3,
+                class_idx=cls,
+                attribution_method=cam,
+                upsample_method=lambda attribution, image, device, model, layer: 
+                    F.interpolate(attribution, size=image.shape[-2:], mode='bilinear', align_corners=False),
+                return_mean=True,
+                device=device
+            )
+
+            comp = Complexity()(sal3, return_mean=True)
+            adcc = 3 / ((1/coher) + 1/(1-comp) + 1/(1 - drop/100))
+            drops.append(drop)
+            incs.append(inc)
+            cohers.append(coher)
+            comps.append(comp)
+            adccs.append(adcc)
+       
         df = pd.DataFrame({
             "image_path": image_paths,
             "top1_index": top1_idxs,
             "average_drop": drops,
             "increase_confidence": incs,
+            "coherency": cohers,
+            "complexity": comps,
+            "adcc": adccs
         })
-        avg_row = pd.DataFrame([{"image_path": "AVERAGE", "top1_index": "", "average_drop": np.mean(drops), "increase_confidence": np.mean(incs)}])
+        avg_row = pd.DataFrame([{
+            "image_path": "AVERAGE",
+            "top1_index": "",
+            "average_drop": np.mean(drops),
+            "increase_confidence": np.mean(incs),
+            "coherency": np.mean(cohers),
+            "complexity": np.mean(comps),
+            "adcc": np.mean(adccs)
+        }])
         df = pd.concat([avg_row, df], ignore_index=True)
         sheet_name = cam_method if c is None else f"{cam_method}_K{c}"
         mode = "a" if os.path.exists(full_path) else "w"

@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
 test_cluster_visualize.py
-
+from glob import glob
+import os
 Visualize ClusterScoreCAM: lưu ảnh gốc được mask theo từng cluster và overlay saliency map.
 """
-
+import argparse
 import os
-
+from glob import glob
 import numpy as np
 import torch
 import torchvision.models as models
@@ -73,12 +74,24 @@ def visualize_clusters_and_saliency(
     plt.close(fig)
 
 
+
 if __name__ == "__main__":
-    img_path = "/home/infres/xnguyen-24/cluster_cam/datasets/imagenet/n02279972_monarch.JPEG"
+    # --- CLI args ---
+    parser = argparse.ArgumentParser(
+        description="Visualize ClusterScoreCAM từ file X trở đi"
+    )
+    parser.add_argument(
+        "--start-from", "-s",
+        type=str,
+        default=None,
+        help="Tên file (không có đuôi) để bắt đầu, ví dụ 'ILSVRC2012_test_00000001'"
+    )
+    args = parser.parse_args()
+    start_from = args.start_from
+
+    # --- Cấu hình model ---
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    resnet = models.resnet18(
-        weights=models.ResNet18_Weights.DEFAULT
-    ).to(device).eval()
+    resnet = models.resnet18(weights=models.ResNet18_Weights.DEFAULT).to(device).eval()
     model_dict = {
         "type": "resnet18",
         "arch": resnet,
@@ -86,33 +99,48 @@ if __name__ == "__main__":
         "input_size": (224, 224)
     }
 
-   
-    # Define k sets
-    ks_save = list(range(3, 11)) + [15, 20, 25, 30]
-    ks_no_save = list(range(35, 201, 5))
+    # --- Thư mục ảnh ---
+    IMG_FOLDER = "/home/infres/xnguyen-24/cluster_cam/datasets/test"
+    IMAGE_PATHS = sorted(glob(os.path.join(IMG_FOLDER, "*.JPEG")))
 
-    # Loop for ks where we save cluster masks
-    for k in ks_save:
-        out_dir = f"visualizations/monarch/monarch_{k}_clusters"
-        visualize_clusters_and_saliency(
-            img_path=img_path,
-            model_dict=model_dict,
-            out_dir=out_dir,
-            num_clusters=k,
-            device=device,
-            save_clusters=True
-        )
-        print(f"Done k={k} (with clusters), outputs → {out_dir}")
+    # --- Cờ để xác định đã bắt đầu chạy ---
+    started = (start_from is None)
 
-    # Loop for ks where we do _not_ save cluster masks
-    for k in ks_no_save:
-        out_dir = f"visualizations/monarch/monarch_{k}_clusters"
-        visualize_clusters_and_saliency(
-            img_path=img_path,
-            model_dict=model_dict,
-            out_dir=out_dir,
-            num_clusters=k,
-            device=device,
-            save_clusters=False
-        )
-        print(f"Done k={k} (no clusters), outputs → {out_dir}")
+    # --- Danh sách K ---
+    ks_save = list(range(3, 5)) + [6, 8]
+    ks_no_save = list(range(10, 100, 5))
+
+    for img_path in IMAGE_PATHS:
+        img_name = os.path.splitext(os.path.basename(img_path))[0]
+
+        # Nếu chưa đến file start_from, tiếp tục bỏ qua
+        if not started:
+            if img_name == start_from:
+                started = True
+            else:
+                continue
+
+        # Bắt đầu xử lý từ đây
+        for k in ks_save:
+            out_dir = f"visualizations/ClusCAM_resnet18/{img_name}/{img_name}_k{k}_clusters"
+            visualize_clusters_and_saliency(
+                img_path=img_path,
+                model_dict=model_dict,
+                out_dir=out_dir,
+                num_clusters=k,
+                device=device,
+                save_clusters=True
+            )
+            print(f"[✓] {img_name} k={k} clusters")
+
+        for k in ks_no_save:
+            out_dir = f"visualizations/ClusCAM_resnet18/{img_name}/{img_name}_k{k}_clusters"
+            visualize_clusters_and_saliency(
+                img_path=img_path,
+                model_dict=model_dict,
+                out_dir=out_dir,
+                num_clusters=k,
+                device=device,
+                save_clusters=False
+            )
+            print(f"[✓] {img_name} k={k} cluster")

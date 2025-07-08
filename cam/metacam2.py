@@ -39,30 +39,33 @@ class ClusterScoreCAM(BaseCAM):
         if input.dim() != 4:
             raise ValueError(f"Expected 4D tensor, got {input.dim()}D")
 
-        # Forward logits and get activations via hook
-        logits = self.model_arch(input)  # (local_B, num_classes)
-        activations = self.activations['value']  # (local_B, nc, u, v)
+        # Forward logits
+        logits = self.model_arch(input)             # (global_B, num_classes)
+        # Get activations from hook (per-device chunk)
+        activations = self.activations['value']      # (local_B, nc, u, v)
         local_B, nc, u, v = activations.shape
-        # Track batch size per device
-        print(f"[ClusterScoreCAM] Processing local batch size: {local_B}")
+        print(f"[ClusterScoreCAM] Processing chunk size: {local_B}")
 
-        # Determine class indices per sample
-        device = input.device
+        # Align input to local chunk
+        input_chunk = input[:local_B]
+        device = input_chunk.device
+
+        # Determine class indices for chunk
         if class_idx is None:
-            cls = logits.argmax(dim=1)
+            cls = logits.argmax(dim=1)[:local_B].to(device)
         elif isinstance(class_idx, torch.Tensor):
-            cls = class_idx.to(device)
+            cls = class_idx.to(device)[:local_B]
         elif isinstance(class_idx, (list, tuple)):
-            cls = torch.tensor(class_idx, device=device)
+            cls = torch.tensor(class_idx, device=device)[:local_B]
         else:
             cls = torch.full((local_B,), int(class_idx), device=device, dtype=torch.long)
-        base_scores = logits.gather(1, cls.unsqueeze(1)).squeeze(1)  # (local_B,)
+        base_scores = logits[:local_B].gather(1, cls.unsqueeze(1)).squeeze(1)
 
-        # Single-sample shortcut
+        # Single-sample fallback
         if local_B == 1:
-            return self._single_forward(input, class_idx, retain_graph)
+            return self._single_forward(input_chunk, cls.item(), retain_graph)
 
-        # 2) Backprop gradients w.r.t activations
+        # Backprop gradients w.r.t. activation maps
         self.model_arch.zero_grad()
         grads = torch.autograd.grad(
             outputs=base_scores,
@@ -71,8 +74,8 @@ class ClusterScoreCAM(BaseCAM):
             retain_graph=retain_graph
         )[0]  # (local_B, nc, u, v)
 
-        # 3) Upsample + normalize
-        H, W = input.shape[2], input.shape[3]
+        # Upsample & normalize
+        H, W = input_chunk.shape[2], input_chunk.shape[3]
         up = F.interpolate(
             grads.view(-1, 1, u, v), size=(H, W), mode='bilinear', align_corners=False
         ).view(local_B, nc, H, W)
@@ -80,7 +83,7 @@ class ClusterScoreCAM(BaseCAM):
         max_ = up.flatten(2).amax(-1).view(local_B, nc, 1, 1)
         up = (up - min_) / (max_ - min_ + 1e-7)
 
-        # 4) Cluster per-sample
+        # Clustering per-sample
         rep_maps = torch.zeros((local_B, self.K, H, W), device=device)
         for i in range(local_B):
             flat = up[i].reshape(nc, -1).detach().cpu().numpy()
@@ -88,15 +91,15 @@ class ClusterScoreCAM(BaseCAM):
             centers = torch.from_numpy(km.cluster_centers_).to(device)
             rep_maps[i] = centers.view(self.K, H, W)
 
-        # 5) Batch scoring in one forward
+        # Batch scoring
         masks = rep_maps.view(local_B * self.K, 1, H, W)
-        inps = input.unsqueeze(1).expand(local_B, self.K, input.shape[1], H, W)
-        inps = inps.contiguous().view(local_B * self.K, input.shape[1], H, W)
-        outs = self.model_arch(inps * masks)  # (local_B*K, num_classes)
+        inps = input_chunk.unsqueeze(1).expand(local_B, self.K, input_chunk.shape[1], H, W)
+        inps = inps.contiguous().view(local_B * self.K, input_chunk.shape[1], H, W)
+        outs = self.model_arch(inps * masks)        # (local_B*K, num_classes)
         cls_rep = cls.unsqueeze(1).expand(local_B, self.K).contiguous().view(-1)
-        scores = outs.gather(1, cls_rep.unsqueeze(1)).squeeze(1)  # (local_B*K,)
+        scores = outs.gather(1, cls_rep.unsqueeze(1)).squeeze(1)
 
-        # 6) Compute diffs and zero-out
+        # Compute diffs and zero-out
         diffs = (scores - base_scores.repeat_interleave(self.K)).view(local_B, self.K)
         num_zero = int(self.zero_ratio * self.K)
         if num_zero > 0:
@@ -104,14 +107,14 @@ class ClusterScoreCAM(BaseCAM):
                 low = torch.argsort(diffs[i])[:num_zero]
                 diffs[i, low] = float('-inf')
 
-        # 7) Softmax weights per sample
+        # Softmax weights per sample
         T = torch.tensor([
             self.temperature_dict.get(int(cls[i].item()), self.temperature)
             for i in range(local_B)
         ], device=device)
-        weights = F.softmax(diffs / T.unsqueeze(1), dim=1)  # (local_B, K)
+        weights = F.softmax(diffs / T.unsqueeze(1), dim=1)
 
-        # 8) Combine saliency
+        # Combine saliency
         sal = (weights.view(local_B, self.K, 1, 1) * rep_maps).sum(dim=1, keepdim=True)
         sal = F.relu(sal)
         mn = sal.flatten(2).amin(-1).view(local_B, 1, 1, 1)
@@ -123,9 +126,7 @@ class ClusterScoreCAM(BaseCAM):
     def _single_forward(self, input, class_idx=None, retain_graph=False):
         b, c, h, w = input.size()
         logits = self.model_arch(input)
-        if class_idx is None:
-            class_idx = logits.argmax(dim=1).item()
-        elif isinstance(class_idx, torch.Tensor):
+        if isinstance(class_idx, torch.Tensor):
             class_idx = int(class_idx)
         base_score = logits[0, class_idx]
 
@@ -134,7 +135,9 @@ class ClusterScoreCAM(BaseCAM):
         activations = self.activations['value'][0]
         nc, u, v = activations.shape
 
-        up = F.interpolate(activations.unsqueeze(1), size=(h, w), mode='bilinear', align_corners=False).squeeze(1)
+        up = F.interpolate(
+            activations.unsqueeze(1), size=(h, w), mode='bilinear', align_corners=False
+        ).squeeze(1)
         min_ = up.flatten(1).amin(1).view(nc, 1, 1)
         max_ = up.flatten(1).amax(1).view(nc, 1, 1)
         up = (up - min_) / (max_ - min_ + 1e-7)

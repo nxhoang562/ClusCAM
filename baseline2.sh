@@ -4,15 +4,12 @@ set -euo pipefail
 # Danh sách các ResNet muốn test (không có dấu phẩy)
 MODELS=(
   "resnet34"
-  "resnet50"
-  "resnet101"
-  "inception_v3"
 )
 
 # Danh sách CAM methods muốn test
 # Ví dụ: polyp, polym, polypm, gradcam, scorecam, cluster…
 BASELINE_CAM_METHODS=(
-  "polypm"
+  "scorecam"
 )
 
 # Cấu hình chung

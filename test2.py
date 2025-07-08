@@ -1,7 +1,7 @@
 import os
 import torchvision.models as models
 from args import get_args
-from test_utils_pca import test_single_image, batch_test
+from cluster_cam.test.test_utils_pca import test_single_image, batch_test
 import torch
 from models.alzheimer_resnet18.alzheimer_resnet18 import load_model
 

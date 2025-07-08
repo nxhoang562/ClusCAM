@@ -4,10 +4,6 @@ set -euo pipefail
 # Danh sách các ResNet muốn test
 MODELS=(
   "resnet18"
-  "resnet34"
-  "resnet50"
-  "resnet101"
-  "inception_v3"
 )
 # Cấu hình chung
 DATASET="datasets/ILSVRC2012_img_val"

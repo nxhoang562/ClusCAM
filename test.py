@@ -9,7 +9,7 @@ from torchvision.models import (
 
 from args import get_args
 # from test_utils import test_single_image, batch_test
-from test_utils import batch_test
+from test_utils_baselines import batch_test
 from models.alzheimer_resnet18.alzheimer_resnet18 import load_model
 
 
@@ -104,6 +104,8 @@ def main():
             cam_method=args.cam_method,
             top_n=args.top_n,
             model_name=args.model, 
+            start_idx=args.start_idx,
+            end_idx=args.end_idx
         )
 
 
