@@ -3,20 +3,27 @@ set -euo pipefail
 
 # Danh sách các model muốn test
 MODELS=(
-"resnet18"
-"resnet34"
-"resnet50"
-"resnet101"
+  resnet34
+  resnet50
+  inception_v3
+  efficientNet
+  resnet101
+  resnet152
+  vgg16
 )
 
 # Danh sách các CAM methods baseline (không bao gồm cluster)
 BASELINE_CAM_METHODS=(
 "gradcam"
 "gradcamplusplus"
+"layercam"
 "scorecam"
 "ablationcam"
 "shapleycam"
 )
+
+  # "cluster", "gradcam", "gradcamplusplus",
+  #           "layercam", "scorecam", "ablationcam", "shapleycam"
 
 # Cấu hình chung
 DATASET="datasets/ILSVRC2012_img_val"
@@ -35,7 +42,7 @@ for MODEL in "${MODELS[@]}"; do
 
     mkdir -p "$(dirname "$EXCEL_PATH")"
 
-    python3 test.py \
+    python3 test_baselines.py \
       --mode batch \
       --model "$MODEL" \
       --dataset "$DATASET" \

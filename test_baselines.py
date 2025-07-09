@@ -4,12 +4,13 @@ import torchvision.models as models
 from torchvision.models import (
     inception_v3, Inception_V3_Weights,
     ResNet18_Weights, ResNet34_Weights, ResNet50_Weights,
-    ResNet101_Weights, ResNet152_Weights
+    ResNet101_Weights, ResNet152_Weights, efficientnet_b0, EfficientNet_B0_Weights
 )
-from args import get_args
-from models.alzheimer_resnet18.alzheimer_resnet18 import load_model
 
-from test_utils_batch import batch_test
+from args import get_args
+# from test_utils import test_single_image, batch_test
+from utils_baselines import batch_test
+from models.alzheimer_resnet18.alzheimer_resnet18 import load_model
 
 
 def main():
@@ -28,30 +29,35 @@ def main():
     if args.model in resnet_confs:
         constructor, WeightsEnum = resnet_confs[args.model]
         model = constructor(weights=WeightsEnum.IMAGENET1K_V1)
+        model.eval()
         input_size = (224, 224)
-        target_layer = model.layer4
+        target_layer = model.layer4  # ResNet sử dụng layer4 cho layer cuối
     elif args.model == 'alzheimer_resnet18':
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         model = load_model(
             checkpoint_path="/home/infres/xnguyen-24/cluster_cam/models/alzheimer_resnet18/alzheimer_resnet18.pth",
             device=device
         )
+        model.eval()
+        target_layer = model.layer4   # Alzheimer ResNet18 sử dụng layer4 cho layer cuối
         input_size = (128, 128)
-        target_layer = model.layer4
     elif args.model == 'vgg16':
         model = models.vgg16(weights=models.VGG16_Weights.IMAGENET1K_V1)
+        model.eval()
         input_size = (224, 224)
-        target_layer = model.features[28]
+        target_layer = model.features[28]  # VGG16 sử dụng features.28 cho layer cuối
     elif args.model == 'inception_v3':
         model = inception_v3(weights=Inception_V3_Weights.IMAGENET1K_V1)
+        model.eval()
         input_size = (299, 299)
-        target_layer = model.Mixed_7c
+        target_layer = model.Mixed_7c  # Inception V3 sử dụng Mixed_   
+    elif args.model == 'efficientNet':
+        model = efficientnet_b0(weights=EfficientNet_B0_Weights.IMAGENET1K_V1)
+        model.eval()
+        input_size = (224, 224)
+        target_layer = model.features[-1] # EfficientNet sử dụng features cuối cùng là c
     else:
         raise ValueError(f"Model {args.model} không hỗ trợ")
-
-    model.eval()
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    model = model.to(device)
 
     model_dict = {
         'type': args.model,
@@ -63,8 +69,23 @@ def main():
         'temperature': args.temperature,
     }
 
-    # Chạy chế độ batch hoặc single
-    if args.mode == 'batch':
+    # Chạy chế độ single image
+    if args.mode == 'single':
+        if not args.img_path:
+            raise RuntimeError("--img-path là bắt buộc khi mode='single'")
+
+        drop, inc = test_single_image(
+            model,
+            model_dict,
+            args.img_path,
+            args.save_prefix,
+            cam_method=args.cam_method,
+            num_clusters=args.num_clusters
+        )
+        print(f"Average Drop: {drop:.4f}, Increase Confidence: {inc:.4f}")
+
+    # Chạy chế độ batch
+    else:
         if not args.dataset or not args.excel_path:
             raise RuntimeError("--dataset và --excel-path là bắt buộc khi mode='batch'")
 
@@ -87,24 +108,10 @@ def main():
             args.k_values,
             cam_method=args.cam_method,
             top_n=args.top_n,
-            model_name=args.model,
-            batch_size=args.batch_size,
-            num_workers=args.num_workers
+            model_name=args.model, 
+            start_idx=args.start_idx,
+            end_idx=args.end_idx
         )
-    else:
-        # Nếu muốn chạy single, vẫn dùng hàm test_single_image cũ
-        from cluster_cam.test_utils_baselines import test_single_image
-        if not args.img_path:
-            raise RuntimeError("--img-path là bắt buộc khi mode='single'")
-        drop, inc = test_single_image(
-            model,
-            model_dict,
-            args.img_path,
-            args.save_prefix,
-            cam_method=args.cam_method,
-            num_clusters=args.num_clusters
-        )
-        print(f"Average Drop: {drop:.4f}, Increase Confidence: {inc:.4f}")
 
 
 if __name__ == '__main__':

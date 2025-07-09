@@ -17,7 +17,7 @@ class AverageIncrease(MetricBase):
         apply_softmax: bool = True,
         return_mean: bool = True,
         **kwargs,
-    ) -> torch.Tensor:
+    ) -> float:
         """
         Compute Average Increase: tỉ lệ (%) số ảnh mà confidence tăng lên
         khi chỉ cung cấp saliency map. 
@@ -60,7 +60,7 @@ class AverageIncrease(MetricBase):
         if return_mean:
             return percentages.mean().item()                  # float
         else:
-            return percentages                                # tensor (N,)
+            return percentages.item()                                # tensor (N,)
 
 
 # import torch

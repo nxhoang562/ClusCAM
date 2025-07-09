@@ -8,6 +8,8 @@ from pytorch_grad_cam import (
     GradCAM, GradCAMPlusPlus, LayerCAM, ScoreCAM,
     AblationCAM, ShapleyCAM
 )
+
+from cam.metacam import ClusterScoreCAM
 from metrics.average_drop import AverageDrop
 from metrics.average_increase import AverageIncrease
 from metrics.coherency import Coherency
@@ -96,6 +98,14 @@ CAM_FACTORY = {
         target_layers=[md["target_layer"]],
         **kw
     ),
+    
+    "cluster": lambda md, num_clusters=None: ClusterScoreCAM(
+        md,
+        num_clusters=num_clusters,
+        zero_ratio=md.get("zero_ratio", 0.5),
+        temperature=md.get("temperature", 0.5)
+    ),
+    
 }
 
 
@@ -185,6 +195,7 @@ def batch_test(
                 saliency_np = cam(input_tensor=img_tensor, targets=[ClassifierOutputTarget(cls)])
                 sal_map = torch.from_numpy(saliency_np).cpu().squeeze(0)
             sal3 = sal_map.unsqueeze(0).repeat(1, img_tensor.size(1), 1, 1).to(device)
+            
             drop = AverageDrop()(model, img_tensor, sal3, cls, device, True)
             inc = AverageIncrease()(model, img_tensor, sal3, cls, device, True)
             
@@ -202,12 +213,13 @@ def batch_test(
             )
 
             comp = Complexity()(sal3, return_mean=True)
+            
             adcc = 3 / ((1/coher) + 1/(1-comp) + 1/(1 - drop/100))
             drops.append(drop)
             incs.append(inc)
-            cohers.append(coher)
-            comps.append(comp)
-            adccs.append(adcc)
+            cohers.append(coher*100)  # Chuyển sang phần trăm
+            comps.append(comp*100)  # Chuyển sang phần trăm
+            adccs.append(adcc*100)  # Chuyển sang phần trăm
        
         df = pd.DataFrame({
             "image_path": image_paths,

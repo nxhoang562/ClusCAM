@@ -10,38 +10,42 @@ MODELS=(
   "inception_v3"
 )
 # Cấu hình chung
+CAM_METHOD="cluster"
 DATASET="datasets/ILSVRC2012_img_val"
 BASE_EXCEL_DIR="results/imagenet_val"
-K_VALUES=(2 5 10 15 20 30 35 40 45 50 55 60 65 70 75 80 85 90 95 100 105 110 115 120 125 130 135 140 145 150 155 160 165 170 175 180 185 190 195 200)
-CAM_METHOD="cluster"
-TOP_N=1000
+# K_VALUES=(2 5 10 15 20 30 35 40 45 50 55 60 65 70 75 80 85 90 95 100 105 110 115 120 125 130 135 140 145 150 155 160 165 170 175 180 185 190 195 200)
+K_VALUES=(90)
+# TOP_N=2
+START_IDX=1001
+END_IDX=4001
 ZERO_RATIO=0.5
 TEMPERATURE=0.5
-MODE_TYPE="validation"
-BATCH_SIZE=256
+BATCH_SIZE=3
+MODE_TYPE="test"  
+
 
 for MODEL in "${MODELS[@]}"; do
   echo "==== $MODE_TYPE with $MODEL ===="
 
   # Đường dẫn lưu Excel riêng cho từng model
-  EXCEL_PATH="${BASE_EXCEL_DIR}/${MODEL}_${MODE_TYPE}_${CAM_METHOD}_batch${BATCH_SIZE}_zr${ZERO_RATIO}_temp${TEMPERATURE}_${TOP_N}imgs.xlsx"
+  EXCEL_PATH="${BASE_EXCEL_DIR}/${MODEL}_${MODE_TYPE}_${CAM_METHOD}_batch${BATCH_SIZE}_zr${ZERO_RATIO}_temp${TEMPERATURE}_1001-40001imgs.xlsx"
   
   # Tạo thư mục nếu chưa có
   mkdir -p "$(dirname "$EXCEL_PATH")"
   
-  python3 test_batch2.py \
+  python3 test_baselines.py \
     --mode batch \
     --model "${MODEL}" \
     --dataset "${DATASET}" \
     --excel-path "${EXCEL_PATH}" \
     --k-values "${K_VALUES[@]}" \
     --cam-method "${CAM_METHOD}" \
-    --top-n "${TOP_N}" \
     --zero-ratio "${ZERO_RATIO}" \
     --temperature "${TEMPERATURE}" \
     --batch-size "${BATCH_SIZE}" \
     --num-workers 4 \
-    --mode-type "${MODE_TYPE}" \
+    --start-idx "${START_IDX}" \
+    --end-idx "${END_IDX}" 
 
   echo "---- Finished $MODEL, results in $EXCEL_PATH ----"
   echo

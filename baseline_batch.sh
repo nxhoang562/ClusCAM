@@ -3,8 +3,6 @@ set -euo pipefail
 
 # Danh sách các ResNet hoặc model bạn muốn test
 MODELS=(
-  "resnet18"
-  "resnet34"
   "resnet50"
   "resnet101"
   "inception_v3"

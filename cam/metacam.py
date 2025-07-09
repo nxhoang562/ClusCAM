@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 from cam.basecam import BaseCAM
 from sklearn.cluster import KMeans
-
+from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 
 class ClusterScoreCAM(BaseCAM):
     """
@@ -32,7 +32,8 @@ class ClusterScoreCAM(BaseCAM):
     def forward(self, input, class_idx=None, retain_graph=False):
         # Input: (1,C,H,W)
         b, c, h, w = input.size()
-
+        
+        
         # 1) Forward pass + chọn class
         logits = self.model_arch(input)
         if class_idx is None:
@@ -109,36 +110,52 @@ class ClusterScoreCAM(BaseCAM):
 # khong chay voi batch
     # def __call__(self, input, class_idx=None, retain_graph=False):
     #     return self.forward(input, class_idx, retain_graph)
-    def __call__(self, input: torch.Tensor, class_idx=None, retain_graph=False):
-        """
-         Hỗ trợ cả single (1,C,H,W) và batch (B,C,H,W).
-         Nếu batch, sẽ gọi forward() cho từng sample và
-         trả về saliency maps dạng (B,1,H,W).
-         """
-        # batch đầu tiên
-        if input.dim() == 4 and input.size(0) > 1:
-            B = input.size(0)
-            print(f"[ClusterScoreCAM] Detected batch size: {B}")
-            # chuyển class_idx về list có độ dài B
-            if class_idx is None:
-                cls_list = [None] * B
-            elif isinstance(class_idx, torch.Tensor):
-                cls_list = class_idx.detach().cpu().tolist()
-            elif isinstance(class_idx, (list, tuple)):
-                cls_list = list(class_idx)
-            else:
-                # cùng 1 label cho tất cả
-                cls_list = [int(class_idx)] * B
+# chay voi batch 
+    def __call__(self,
+                input_tensor: torch.Tensor,
+                targets: list[ClassifierOutputTarget] | None = None,
+                class_idx: int | None = None,
+                retain_graph: bool = False):
+        
+        if targets is not None and len(targets) > 0 and isinstance(targets[0], ClassifierOutputTarget):
+            class_idx = targets[0].category
 
-            outs = []
-            for i in range(B):
-                print(f"[ClusterScoreCAM] Processing sample {i+1}/{B}, class_idx={cls_list[i]}")
-                inp_i = input[i : i+1]
-                ci = cls_list[i]
-                sal_i = self.forward(inp_i, ci, retain_graph)
-                # forward trả về (1,1,H,W)
-                outs.append(sal_i)
-            # ghép lại thành (B,1,H,W)
-            return torch.cat(outs, dim=0)
-        # không phải batch, gọi bình thường
-        return self.forward(input, class_idx, retain_graph)
+        if class_idx is None:
+            raise ValueError("ClusterCAM: need a class_idx")
+        
+        return self.forward(input_tensor, class_idx, retain_graph)
+    
+        # """
+        #  Hỗ trợ cả single (1,C,H,W) và batch (B,C,H,W).
+        #  Nếu batch, sẽ gọi forward() cho từng sample và
+        #  trả về saliency maps dạng (B,1,H,W).
+        #  """
+        # if targets is not None and len(targets) > 0 and isinstance(targets[0], ClassifierOutputTarget):
+        #     class_idx = targets[0].category
+        # # batch đầu tiên
+        # if input.dim() == 4 and input.size(0) > 1:
+        #     B = input.size(0)
+        #     print(f"[ClusterScoreCAM] Detected batch size: {B}")
+        #     # chuyển class_idx về list có độ dài B
+        #     if class_idx is None:
+        #         cls_list = [None] * B
+        #     elif isinstance(class_idx, torch.Tensor):
+        #         cls_list = class_idx.detach().cpu().tolist()
+        #     elif isinstance(class_idx, (list, tuple)):
+        #         cls_list = list(class_idx)
+        #     else:
+        #         # cùng 1 label cho tất cả
+        #         cls_list = [int(class_idx)] * B
+
+        #     outs = []
+        #     for i in range(B):
+        #         print(f"[ClusCAM] Processing sample {i+1}/{B}, class_idx={cls_list[i]}")
+        #         inp_i = input[i : i+1]
+        #         ci = cls_list[i]
+        #         sal_i = self.forward(inp_i, ci, retain_graph)
+        #         # forward trả về (1,1,H,W)
+        #         outs.append(sal_i)
+        #     # ghép lại thành (B,1,H,W)
+        #     return torch.cat(outs, dim=0)
+        # # không phải batch, gọi bình thường
+        # return self.forward(input, class_idx, retain_graph)

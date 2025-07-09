@@ -59,7 +59,7 @@ class Coherency(MetricBase):
         # 2) Compute attribution on mixed images via CAM call
         idx = int(class_idx) if not isinstance(class_idx, (list, tuple, torch.Tensor)) else int(class_idx[0])
         targets = [ClassifierOutputTarget(idx)]
-        cam_out = attribution_method(input_tensor=mixed, targets=targets)
+        cam_out = attribution_method(mixed, targets)
 
         # Convert numpy array to torch.Tensor if needed
         if isinstance(cam_out, np.ndarray):
@@ -96,5 +96,5 @@ class Coherency(MetricBase):
         rho = batch_pearson_coherency(mixed_attr, sal_map)  # (B,)
         coherency = (rho + 1.0) / 2.0 
 
-        return coherency.mean() if return_mean else coherency
+        return coherency.mean().item() if return_mean else coherency.item()
 

@@ -17,7 +17,7 @@ class AverageDrop(MetricBase):
                  apply_softmax: bool = True,
                  return_mean: bool = True,
                  **kwargs,
-                 ) -> torch.Tensor:
+                 ) -> float:
         """
         Compute the Average Drop metric:
         - If return_mean=True: returns a Python float of the mean drop (%) over the batch.
@@ -73,7 +73,7 @@ class AverageDrop(MetricBase):
             return mean_drop.item()
         else:
             # Per-sample drop percentages
-            return ratios
+            return ratios.item()
 
 # import torch
 # import torch.nn as nn

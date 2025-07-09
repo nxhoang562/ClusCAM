@@ -13,12 +13,15 @@ from metrics.coherency import Coherency
 from metrics.complexity import Complexity
 from cam.metacam import ClusterScoreCAM
 
+import torch.nn as nn
+import torch.nn.functional as F
+
 # -- Transforms for input images --
 rgb_transform = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                         std=[0.229, 0.224, 0.225])
+                        std=[0.229, 0.224, 0.225])
 ])
 
 gray_transform = transforms.Compose([
@@ -54,7 +57,7 @@ class ImageFolderDataset(Dataset):
         tensor = self.transform(img)
         return tensor, path
 
-# Chỉ giữ lại Cluster CAM
+
 CAM_FACTORY = {
     "cluster": lambda md, num_clusters=None: ClusterScoreCAM(
         md,
@@ -144,16 +147,17 @@ def batch_test(
                                         device, apply_softmax=True, return_mean=True)
                 inc_b   = AverageIncrease()(model, batch_imgs, sal3, preds,
                                              device, apply_softmax=True, return_mean=True)
+
                 coher_b = Coherency()(
                     model=model,
                     test_images=batch_imgs,
                     saliency_maps=sal3,
-                    class_idx=preds,
+                    class_idx=cls_list,
                     attribution_method=cam,
                     upsample_method=lambda *args, **kwargs: kwargs.get("attribution", args[0]),
                     device=device,
                     return_mean=True
-                )
+                )  
                 comp_b  = Complexity()(sal3, return_mean=True)
                 adcc_b  = 3 / ((1/coher_b) + 1/(1-comp_b) + 1/(1 - drop_b/100))
 

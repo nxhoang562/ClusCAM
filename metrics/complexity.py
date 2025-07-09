@@ -13,7 +13,7 @@ class Complexity( MetricBase):
         saliency_maps: torch.Tensor,
         return_mean: bool = True,
         **kwargs,
-    ) -> torch.Tensor:
+    ) -> float:
         saliency_maps_clone = saliency_maps.detach().clone()
         if len(saliency_maps.shape) == 4:
             # If the saliency maps are 4D, we need to reduce them to 3D
