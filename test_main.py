@@ -8,8 +8,11 @@ from torchvision.models import (
 )
 
 from args import get_args
+
+###Doi cac che do tai day #####
 # from test_utils import test_single_image, batch_test
-from utils_main import batch_test
+# from utils_main import batch_test
+from utils_ablationBoPhanCum import batch_test
 from models.alzheimer_resnet18.alzheimer_resnet18 import load_model
 
 

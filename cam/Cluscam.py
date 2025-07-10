@@ -196,8 +196,19 @@ class FeatureScoreCAM(BaseCAM):
         rep_maps = up.view(nc,1,h,w)
 
         # tính diff bằng batch
-        masked = input.unsqueeze(0) * rep_maps  # (nc,C,h,w)
-        outs = self.model_arch(masked)
+        masked = input * rep_maps  # (nc,C,h,w)
+        
+        # outs = self.model_arch(masked)
+        outs_chunks = []
+        batch_size = 32  # hoặc tuỳ chỉnh theo khả năng GPU
+        with torch.no_grad():  # inference, không cần grad ở đây
+            for i in range(0, nc, batch_size):
+                chunk = masked[i : i + batch_size]         # shape (bs, C, H, W)
+                out_chunk = self.model_arch(chunk)         # kết quả shape (bs, num_classes)
+                outs_chunks.append(out_chunk)
+        outs_flat = torch.cat(outs_chunks, dim=0)           # (nc, num_classes)
+        outs = outs_flat  # hoặc .view(B, K, ...) nếu cần
+        
         diffs = outs[:, class_idx] - base_score
 
         # zero-out nếu muốn

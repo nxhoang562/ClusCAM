@@ -8,7 +8,10 @@ from pytorch_grad_cam import (
     GradCAM, GradCAMPlusPlus, LayerCAM, ScoreCAM,
     AblationCAM, ShapleyCAM
 )
-from cam.Cluscam import ClusterScoreCAM
+
+
+from cam.Cluscam import FeatureScoreCAM
+from cam.HDBSCANcam import HDBSCANcam
 
 
 from cam.polycam import PCAMp, PCAMm, PCAMpm
@@ -115,12 +118,19 @@ CAM_FACTORY = {
         **kw
     ),
     
-    "cluster": lambda md, num_clusters=None: ClusterScoreCAM(
-        md,
-        num_clusters=num_clusters,
+    "cluster": lambda md, **kw: FeatureScoreCAM(
+        model_dict=md,
         zero_ratio=md.get("zero_ratio", 0.5),
+        temperature_dict=md.get("temperature_dict", {}),
         temperature=md.get("temperature", 0.5)
     ),
+    "hdbscan": lambda md, **kw: HDBSCANcam(
+        model_dict=md,
+        min_cluster_size=md.get("min_cluster_size", 2),
+        min_samples=md.get("min_samples", None),
+        cluster_selection_epsilon=md.get("cluster_selection_epsilon", 0.05)
+    ),
+    
      "polyp": lambda md, **kw: PCAMp(
         model=md["arch"],
         target_layer_list=md.get("target_layer_list"),
@@ -224,7 +234,7 @@ def batch_test(
             print(f"[{idx}/{len(image_paths)}] {os.path.basename(path)} -> class {cls}")
             img = load_image(path)
             img_tensor = transform(img).unsqueeze(0).to(device)
-            if cam_method == "cluster":
+            if cam_method == "cluster" or "hdbscan": 
                 sal_map = cam(img_tensor, class_idx=cls).cpu().squeeze(0)
             elif cam_method in ["polyp", "polym", "polypm"]:
                 out = cam(img_tensor, class_idx=cls)   # out là list hoặc tensor
@@ -433,7 +443,7 @@ def batch_test(
 
                 attribution_fn = generic_attr_fn
 
-            if cam_method == "shapleycam" or cam_method == "cluster":
+            if cam_method in ("shapleycam", "cluster", "hdbscan"):
                 senss.append(0)
             else:
                 sens_val = Sensitivity()(

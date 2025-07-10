@@ -57,10 +57,10 @@ class HDBSCANcam(BaseCAM):
             cluster_selection_epsilon=self.cluster_selection_epsilon
         )
         labels = clusterer.fit_predict(all_maps)
-        print("labels:", labels)
+        # print("labels:", labels)
         unique_labels = sorted([lbl for lbl in set(labels) if lbl >= 0])  # bỏ noise (-1)
         n_clusters = len(unique_labels)
-        print("n_clusters:", n_clusters)
+        # print("n_clusters:", n_clusters)
         if n_clusters == 0:
             # fallback: không có cụm nào, sử dụng từng map làm cụm riêng
             rep_maps = torch.from_numpy(
