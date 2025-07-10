@@ -15,7 +15,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 
 from utils import load_image, apply_transforms
-from cam.metacam import ClusterScoreCAM
+from cam.Cluscam import ClusterScoreCAM
 
 
 def visualize_clusters_and_saliency(
@@ -100,15 +100,15 @@ if __name__ == "__main__":
     }
 
     # --- Thư mục ảnh ---
-    IMG_FOLDER = "/home/infres/xnguyen-24/cluster_cam/datasets/test"
+    IMG_FOLDER = "/home/infres/xnguyen-24/cluster_cam/datasets/test_multiobjects"
     IMAGE_PATHS = sorted(glob(os.path.join(IMG_FOLDER, "*.JPEG")))
 
     # --- Cờ để xác định đã bắt đầu chạy ---
     started = (start_from is None)
 
     # --- Danh sách K ---
-    ks_save = list(range(3, 5)) + [6, 8]
-    ks_no_save = list(range(10, 100, 5))
+    # ks_save = None
+    ks_no_save = list(range(10, 100, 10))
 
     for img_path in IMAGE_PATHS:
         img_name = os.path.splitext(os.path.basename(img_path))[0]
@@ -121,20 +121,20 @@ if __name__ == "__main__":
                 continue
 
         # Bắt đầu xử lý từ đây
-        for k in ks_save:
-            out_dir = f"visualizations/ClusCAM_resnet18/{img_name}/{img_name}_k{k}_clusters"
-            visualize_clusters_and_saliency(
-                img_path=img_path,
-                model_dict=model_dict,
-                out_dir=out_dir,
-                num_clusters=k,
-                device=device,
-                save_clusters=True
-            )
-            print(f"[✓] {img_name} k={k} clusters")
+        # for k in ks_save:
+        #     out_dir = f"visualizations/ClusCAM_resnet18/multiobjects/{img_name}/{img_name}_k{k}_clusters"
+        #     visualize_clusters_and_saliency(
+        #         img_path=img_path,
+        #         model_dict=model_dict,
+        #         out_dir=out_dir,
+        #         num_clusters=k,
+        #         device=device,
+        #         save_clusters=True
+        #     )
+        #     print(f"[✓] {img_name} k={k} clusters")
 
         for k in ks_no_save:
-            out_dir = f"visualizations/ClusCAM_resnet18/{img_name}/{img_name}_k{k}_clusters"
+            out_dir = f"visualizations/ClusCAM_resnet18/multiobjects/{img_name}/{img_name}_k{k}_clusters"
             visualize_clusters_and_saliency(
                 img_path=img_path,
                 model_dict=model_dict,

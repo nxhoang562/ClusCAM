@@ -11,7 +11,7 @@ from metrics.average_drop import AverageDrop
 from metrics.average_increase import AverageIncrease
 from metrics.coherency import Coherency
 from metrics.complexity import Complexity
-from cam.metacam import ClusterScoreCAM
+from cam.Cluscam import ClusterScoreCAM
 
 import torch.nn as nn
 import torch.nn.functional as F

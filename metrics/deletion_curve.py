@@ -1,11 +1,9 @@
 import torch
 import torch.nn as nn
 from torcheval.metrics.aggregation.auc import AUC
-from .utils import BaseMetric
-from utils import AttributionMethod
+from .metric_utils import MetricBase, AttributionMethod
 
-
-class DeletionCurveAUC(BaseMetric):
+class DeletionCurveAUC(MetricBase):
     def __init__(self):
         super().__init__("deletion_curve_AUC")
 

@@ -6,6 +6,7 @@ import torch.utils.data as Data
 from torch.autograd import Variable
 import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
+from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 
 import torchvision.utils
 from torchvision import models
@@ -83,14 +84,13 @@ def check_bounding_box(bbox, sm, img):
 #     return j - i
 
 def f_logit_predict(model, device, x, predict_labels):
-    # ensure input on đúng device
     x = x.to(device)
-    outputs = model(x)  # outputs trên cùng device với model
-    # số class nằm ở chiều 1
+    outputs = model(x)                    # outputs.device là nơi giữ kết quả
     num_classes = outputs.size(1)
-    # tạo one-hot trên cùng device
-    one_hot = torch.eye(num_classes, device=device)[predict_labels]
-    # chọn logit theo class
+    # ép labels về đúng device của outputs luôn
+    y = predict_labels.to(outputs.device)
+    # one-hot trực tiếp trên outputs.device
+    one_hot = torch.eye(num_classes, device=outputs.device)[y]
     j = torch.masked_select(outputs, one_hot.bool())
     return j
 
@@ -211,18 +211,49 @@ class Basic_OptCAM:
             raise Exception("Not Implemented")
 
 
-    def combine_activations(self, feature, w, images):
-        # softmax
-        alpha = torch.nn.functional.softmax(w, dim=1).to(self.device)
-        # sum (combination of feature)
-        saliency_map = (alpha.repeat((1,1,feature.shape[2],feature.shape[3]))*feature).sum(axis=1).reshape((feature.shape[0],1,feature.shape[2],feature.shape[3]))
-        # upsampling
-        saliency_map = F.interpolate(saliency_map,size=(images.shape[2],images.shape[3]),mode='bilinear',align_corners=False)
-        # normalize to 0-1
-        norm_saliency_map = self.normalization(saliency_map)
+    # def combine_activations(self, feature, w, images):
+    #     # softmax
+    #     alpha = torch.nn.functional.softmax(w, dim=1).to(self.device)
+    #     # sum (combination of feature)
+    #     saliency_map = (alpha.repeat((1,1,feature.shape[2],feature.shape[3]))*feature).sum(axis=1).reshape((feature.shape[0],1,feature.shape[2],feature.shape[3]))
+    #     # upsampling
+    #     saliency_map = F.interpolate(saliency_map,size=(images.shape[2],images.shape[3]),mode='bilinear',align_corners=False)
+    #     # normalize to 0-1
+    #     norm_saliency_map = self.normalization(saliency_map)
         
-        new_images = norm_saliency_map.repeat((1,images.shape[1],1,1)) * images
+    #     new_images = norm_saliency_map.repeat((1,images.shape[1],1,1)) * images
+    #     return norm_saliency_map, new_images
+    
+    def combine_activations(self, feature, w, images):
+        # 1. Đảm bảo tất cả nằm trên cùng device
+        device = images.device
+        feature = feature.to(device)
+        w = w.to(device)
+
+        # 2. Tính softmax trọng số
+        alpha = F.softmax(w, dim=1)
+
+        # 3. Kết hợp feature với trọng số alpha
+        saliency_map = (
+            alpha.repeat((1, 1, feature.shape[2], feature.shape[3])) * feature
+        ).sum(dim=1, keepdim=True)  # shape [B,1,H,W]
+
+        # 4. Upsample về kích thước ảnh gốc
+        saliency_map = F.interpolate(
+            saliency_map,
+            size=(images.shape[2], images.shape[3]),
+            mode='bilinear',
+            align_corners=False
+        )
+
+        # 5. Normalize về [0,1]
+        norm_saliency_map = self.normalization(saliency_map)
+
+        # 6. Tạo ảnh mới bằng cách nhân saliency map với ảnh gốc
+        new_images = norm_saliency_map.repeat((1, images.shape[1], 1, 1)) * images
+
         return norm_saliency_map, new_images
+
 
     def forward(self, images, labels):
         relu = torch.nn.ReLU()
@@ -258,12 +289,25 @@ class Basic_OptCAM:
         return norm_saliency_map, new_images
 
 
-    def __call__(self,
-                images,
-                labels
-                ):
-        return self.forward(images, labels)
+    def __call__(self, images, labels):
+        images = images.to(self.device)
 
+        # 1) Nhánh Coherency: labels là list[ClassifierOutputTarget]
+        if isinstance(labels, list) and len(labels) > 0 and isinstance(labels[0], ClassifierOutputTarget):
+            idxs = [t.category for t in labels]
+            labels_tensor = torch.tensor(idxs, dtype=torch.long, device=self.device)
+            sal_map, _ = self.forward(images, labels_tensor)
+            # detach trước khi numpy()
+            return sal_map.squeeze(1).detach().cpu().numpy()
+
+        # 2) Nhánh bình thường: int, list int, hoặc Tensor
+        if isinstance(labels, torch.Tensor):
+            labels = labels.to(self.device)
+        else:
+            labels = torch.tensor(labels, dtype=torch.long, device=self.device)
+
+        return self.forward(images, labels)
+    
     def __enter__(self):
         return self
 

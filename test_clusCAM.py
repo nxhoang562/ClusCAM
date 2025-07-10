@@ -9,7 +9,7 @@ from torchvision.models import (
 from args import get_args
 from models.alzheimer_resnet18.alzheimer_resnet18 import load_model
 
-from utils_clusCAM import batch_test
+from cluster_cam.utils_clusCAM_validation import batch_test
 
 
 def main():
@@ -93,7 +93,7 @@ def main():
         )
     else:
         # Nếu muốn chạy single, vẫn dùng hàm test_single_image cũ
-        from cluster_cam.utils_baselines import test_single_image
+        from cluster_cam.utils_main import test_single_image
         if not args.img_path:
             raise RuntimeError("--img-path là bắt buộc khi mode='single'")
         drop, inc = test_single_image(

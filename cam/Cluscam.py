@@ -120,8 +120,8 @@ class ClusterScoreCAM(BaseCAM):
         if targets is not None and len(targets) > 0 and isinstance(targets[0], ClassifierOutputTarget):
             class_idx = targets[0].category
 
-        if class_idx is None:
-            raise ValueError("ClusterCAM: need a class_idx")
+        # if class_idx is None:
+        #     raise ValueError("ClusterCAM: need a class_idx")
         
         return self.forward(input_tensor, class_idx, retain_graph)
     

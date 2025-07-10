@@ -12,7 +12,7 @@ import torch.nn.functional as F
 from utils import load_image, basic_visualize, list_image_paths
 from metrics.average_drop import AverageDrop
 from metrics.average_increase import AverageIncrease
-from cam.metacam import ClusterScoreCAM
+from cam.Cluscam import ClusterScoreCAM
 from cam.polycam import PCAMp, PCAMm, PCAMpm
 from cam.recipro_cam import ReciproCam
 

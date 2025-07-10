@@ -1,9 +1,8 @@
-from .utils import BaseMetric
 import torch
 import torch.nn as nn
 import numpy as np
 from captum.metrics import infidelity
-from utils import AttributionMethod
+from .metric_utils import MetricBase, AttributionMethod
 
 
 # define a perturbation function for the input
@@ -14,7 +13,7 @@ def perturb_fn(inputs: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
     return noise, inputs - noise
 
 
-class Infidelity(BaseMetric):
+class Infidelity(MetricBase):
     def __init__(self):
         super().__init__("infidelity")
 

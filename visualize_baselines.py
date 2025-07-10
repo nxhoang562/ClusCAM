@@ -147,7 +147,7 @@ def save_cam_overlay_only(
 
 if __name__ == "__main__":
     # --- Bật chạy custom methods hoặc default ---
-    USE_CUSTOM = True  # đặt True để chỉ chạy custom methods
+    # USE_CUSTOM = True  # đặt True để chỉ chạy custom methods
 
     # --- Cấu hình model & layer ---
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -157,30 +157,42 @@ if __name__ == "__main__":
     target_layer = model.layer4[-1]
 
     # --- Thư mục ảnh ---
-    IMG_FOLDER = "/home/infres/xnguyen-24/cluster_cam/datasets/test"
+    IMG_FOLDER = "/home/infres/xnguyen-24/cluster_cam/datasets/test_multiobjects"
     IMAGE_PATHS = sorted(glob(os.path.join(IMG_FOLDER, "*.JPEG")))
 
     # --- Chọn phương pháp CAM ---
-    if USE_CUSTOM:
-        cam_methods = {
-            "basic_optcam": Basic_OptCAM,
-            "pcampm": PCAMpm,
-            "reciprocam": ReciproCam
-        }
-    else:
-        cam_methods = {
-            "gradcam": GradCAM,
-            "gradcamplusplus": GradCAMPlusPlus,
-            "layercam": LayerCAM,
-            "scorecam": ScoreCAM,
-            "ablationcam": AblationCAM,
-            "shapleycam": ShapleyCAM
-        }
+    # if USE_CUSTOM:
+    #     cam_methods = {
+    #         "basic_optcam": Basic_OptCAM,
+    #         "pcampm": PCAMpm,
+    #         "reciprocam": ReciproCam
+    #     }
+    # else:
+    #     cam_methods = {
+    #         "gradcam": GradCAM,
+    #         "gradcamplusplus": GradCAMPlusPlus,
+    #         "layercam": LayerCAM,
+    #         "scorecam": ScoreCAM,
+    #         "ablationcam": AblationCAM,
+    #         "shapleycam": ShapleyCAM,
+    #     }
+    
+    cam_methods = {
+        "gradcam": GradCAM,
+        "gradcamplusplus": GradCAMPlusPlus,
+        "layercam": LayerCAM,
+        "scorecam": ScoreCAM,
+        "ablationcam": AblationCAM,
+        "shapleycam": ShapleyCAM,
+        "basic_optcam": Basic_OptCAM,
+        "pcampm": PCAMpm,
+        "reciprocam": ReciproCam
+    }
 
     # --- Loop và lưu overlay ---
     for img_path in IMAGE_PATHS:
         img_name = os.path.splitext(os.path.basename(img_path))[0]
-        out_dir = os.path.join("visualizations/baselines_Resnet18", img_name)
+        out_dir = os.path.join("visualizations/baselines_Resnet18/multiobjects", img_name)
         for method_name, method_class in cam_methods.items():
             save_cam_overlay_only(
                 cam_class=method_class,

@@ -2,11 +2,10 @@ import torch
 import torch.nn as nn
 from torchvision.transforms.functional import gaussian_blur
 from torcheval.metrics.aggregation.auc import AUC
-from .utils import BaseMetric
-from utils import AttributionMethod
+from .metric_utils import MetricBase, AttributionMethod
 
 
-class InsertionCurveAUC(BaseMetric):
+class InsertionCurveAUC(MetricBase):
     def __init__(self):
         super().__init__("insertion_curve_AUC")
 

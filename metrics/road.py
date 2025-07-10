@@ -1,4 +1,3 @@
-from .utils import BaseMetric
 from pytorch_grad_cam.metrics.road import (
     ROADCombined,
     ROADMostRelevantFirst,
@@ -7,10 +6,10 @@ from pytorch_grad_cam.metrics.road import (
 import torch.nn as nn
 import torch
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputSoftmaxTarget
-from utils import AttributionMethod
+from .metric_utils import MetricBase, AttributionMethod
 
 
-class RoadCombined(BaseMetric):
+class RoadCombined(MetricBase):
     def __init__(self):
         super().__init__("road_combined")
 

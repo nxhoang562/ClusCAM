@@ -3,31 +3,42 @@ set -euo pipefail
 
 # Danh sách các model muốn test
 MODELS=(
+  resnet18
   resnet34
-  resnet50
   inception_v3
   efficientNet
+  resnet50
   resnet101
   resnet152
   vgg16
 )
 
-# Danh sách các CAM methods baseline (không bao gồm cluster)
+
 BASELINE_CAM_METHODS=(
-"gradcam"
-"gradcamplusplus"
-"layercam"
-"scorecam"
-"ablationcam"
-"shapleycam"
+  "gradcam"
+  "gradcamplusplus"
+  "layercam"
+  "scorecam"
+  "ablationcam"
+  "shapleycam"
+  "polypm"
+  "opticam"
+  "reciprocam"
 )
+
+# BASELINE_CAM_METHODS=(
+# "gradcam"
+# "polypm"
+# "opticam"
+# "reciprocam"
+# )
 
   # "cluster", "gradcam", "gradcamplusplus",
   #           "layercam", "scorecam", "ablationcam", "shapleycam"
 
 # Cấu hình chung
 DATASET="datasets/ILSVRC2012_img_val"
-BASE_EXCEL_DIR="results/imagenet_val"
+BASE_EXCEL_DIR="results/imagenet_val_rerun"
 START_IDX=1001
 END_IDX=4001
 # Tạo thư mục chung nếu chưa có
