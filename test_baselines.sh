@@ -8,9 +8,9 @@ MODELS=(
   inception_v3
   efficientNet
   resnet50
+  vgg16
   resnet101
   resnet152
-  vgg16
 )
 
 
@@ -53,7 +53,7 @@ for MODEL in "${MODELS[@]}"; do
 
     mkdir -p "$(dirname "$EXCEL_PATH")"
 
-    python3 test_baselines.py \
+    python3 test_main.py \
       --mode batch \
       --model "$MODEL" \
       --dataset "$DATASET" \

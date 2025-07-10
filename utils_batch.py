@@ -9,7 +9,7 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 import torch.nn.functional as F
 
-from utils import load_image, basic_visualize, list_image_paths
+from utils_folder import load_image, basic_visualize, list_image_paths
 from metrics.average_drop import AverageDrop
 from metrics.average_increase import AverageIncrease
 from cam.Cluscam import ClusterScoreCAM

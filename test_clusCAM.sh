@@ -3,11 +3,14 @@ set -euo pipefail
 
 # Danh sách các ResNet muốn test
 MODELS=(
-  "resnet18"
-  "resnet34"
-  "resnet50"
-  "resnet101"
-  "inception_v3"
+  resnet18
+  resnet34
+  inception_v3
+  efficientNet
+  resnet50
+  vgg16
+  resnet101
+  resnet152
 )
 # Cấu hình chung
 CAM_METHOD="cluster"
@@ -20,7 +23,6 @@ START_IDX=1001
 END_IDX=4001
 ZERO_RATIO=0.5
 TEMPERATURE=0.5
-BATCH_SIZE=3
 MODE_TYPE="test"  
 
 
@@ -28,12 +30,12 @@ for MODEL in "${MODELS[@]}"; do
   echo "==== $MODE_TYPE with $MODEL ===="
 
   # Đường dẫn lưu Excel riêng cho từng model
-  EXCEL_PATH="${BASE_EXCEL_DIR}/${MODEL}_${MODE_TYPE}_${CAM_METHOD}_batch${BATCH_SIZE}_zr${ZERO_RATIO}_temp${TEMPERATURE}_1001-40001imgs.xlsx"
+  EXCEL_PATH="${BASE_EXCEL_DIR}/${MODEL}_${MODE_TYPE}_${CAM_METHOD}_zr${ZERO_RATIO}_temp${TEMPERATURE}_1001-40001imgs.xlsx"
   
   # Tạo thư mục nếu chưa có
   mkdir -p "$(dirname "$EXCEL_PATH")"
   
-  python3 test_baselines.py \
+  python3 test_main.py \
     --mode batch \
     --model "${MODEL}" \
     --dataset "${DATASET}" \
@@ -42,8 +44,6 @@ for MODEL in "${MODELS[@]}"; do
     --cam-method "${CAM_METHOD}" \
     --zero-ratio "${ZERO_RATIO}" \
     --temperature "${TEMPERATURE}" \
-    --batch-size "${BATCH_SIZE}" \
-    --num-workers 4 \
     --start-idx "${START_IDX}" \
     --end-idx "${END_IDX}" 
 

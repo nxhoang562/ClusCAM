@@ -13,7 +13,7 @@ from cam.polycam import PCAMp, PCAMm, PCAMpm
 from cam.recipro_cam import ReciproCam
 from cam.opticam import Basic_OptCAM
 
-from cam.Cluscam import ClusterScoreCAM
+
 from metrics import (
     AverageDrop, 
     AverageIncrease, 
@@ -424,11 +424,15 @@ def batch_test(
 
                 attribution_fn = reciprocam_attr_fn
             else:
-                # wrapper chung cho các CAM khác nếu cần
-                attribution_fn = lambda input_tensor, targets=None, **kw: \
-                    torch.from_numpy(cam(input_tensor, targets=targets)).to(device)
+                # wrapper chung cho các CAM khác
+                def generic_attr_fn(input_tensor, targets=None, **kw):
+                    out = cam(input_tensor, targets=targets)
+                    # torch.as_tensor sẽ phụ hợp nếu out là numpy array hay tensor
+                    return torch.as_tensor(out).to(device)
 
-            if cam_method == "shapleycam":
+                attribution_fn = generic_attr_fn
+
+            if cam_method == "shapleycam" or cam_method == "cluster":
                 senss.append(0)
             else:
                 sens_val = Sensitivity()(
@@ -572,7 +576,10 @@ def batch_test(
         # 3. Ghi vào sheet method duy nhất trong file *_deletion_curves.xlsx
         root, ext = os.path.splitext(full_path)
         curves_path = f"{root}_deletion_curves{ext}"
-        with pd.ExcelWriter(curves_path, engine="openpyxl", mode="w") as writer:
+        
+        curve_mode = "a" if os.path.exists(curves_path) else "w"
+        with pd.ExcelWriter(curves_path, engine="openpyxl", mode=curve_mode, if_sheet_exists="replace" if curve_mode == "a" else None) as writer:
             df_curves.to_excel(writer, sheet_name=sheet_name, index=False)
+
         print(f"Saved combined curves sheet {sheet_name} in {curves_path}")
 
