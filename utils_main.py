@@ -8,11 +8,12 @@ from pytorch_grad_cam import (
     GradCAM, GradCAMPlusPlus, LayerCAM, ScoreCAM,
     AblationCAM, ShapleyCAM
 )
-from cam.Cluscam import ClusterScoreCAM
+from cam.Cluscam import ClusterScoreCAM, FeatureScoreCAM
+
+
 from cam.polycam import PCAMp, PCAMm, PCAMpm
 from cam.recipro_cam import ReciproCam
 from cam.opticam import Basic_OptCAM
-
 
 from metrics import (
     AverageDrop, 
@@ -114,7 +115,7 @@ CAM_FACTORY = {
         **kw
     ),
     
-    "cluster": lambda md, num_clusters=None: ClusterScoreCAM(
+    "cluster": lambda md, num_clusters=None: FeatureScoreCAM(
         md,
         num_clusters=num_clusters,
         zero_ratio=md.get("zero_ratio", 0.5),

@@ -159,3 +159,66 @@ class ClusterScoreCAM(BaseCAM):
         #     return torch.cat(outs, dim=0)
         # # không phải batch, gọi bình thường
         # return self.forward(input, class_idx, retain_graph)
+
+class FeatureScoreCAM(BaseCAM):
+    """
+    Score-CAM dùng trực tiếp các feature-map (kênh) mà không clustering.
+    """
+    def __init__(self, model_dict, zero_ratio=0.0, temperature_dict=None, temperature=1.0):
+        super().__init__(model_dict)
+        self.zero_ratio = zero_ratio
+        self.temperature_dict = temperature_dict or {}
+        self.temperature = temperature
+
+    def forward(self, input, class_idx=None, retain_graph=False):
+        b, c, h, w = input.size()
+        logits = self.model_arch(input)
+        if class_idx is None:
+            class_idx = logits.argmax(dim=1).item()
+        base_score = logits[0, class_idx]
+
+        # lấy activation
+        self.model_arch.zero_grad()
+        base_score.backward(retain_graph=retain_graph)
+        acts = self.activations['value'][0]  # (nc,u,v)
+        nc, _, _ = acts.shape
+
+        # upsample + normalize
+        up = F.interpolate(
+            acts.unsqueeze(1), size=(h,w),
+            mode='bilinear', align_corners=False
+        )  # (nc,1,h,w)
+        # chuẩn hoá riêng mỗi channel
+        up = up.view(nc, -1)
+        mins = up.min(dim=1, keepdim=True)[0]
+        maxs = up.max(dim=1, keepdim=True)[0]
+        up = (up - mins) / (maxs - mins + 1e-8)
+        rep_maps = up.view(nc,1,h,w)
+
+        # tính diff bằng batch
+        masked = input.unsqueeze(0) * rep_maps  # (nc,C,h,w)
+        outs = self.model_arch(masked)
+        diffs = outs[:, class_idx] - base_score
+
+        # zero-out nếu muốn
+        num_zero = int(self.zero_ratio * nc)
+        if num_zero > 0:
+            lowest = torch.argsort(diffs)[:num_zero]
+            diffs[lowest] = float('-inf')
+
+        # softmax với temperature
+        T = self.temperature_dict.get(class_idx, self.temperature)
+        weights = F.softmax(diffs / T, dim=0)
+
+        # combine saliency
+        sal = (weights.view(-1,1,1,1) * rep_maps).sum(dim=0, keepdim=True)
+        sal = F.relu(sal)
+        mn, mx = sal.min(), sal.max()
+        sal = (sal - mn) / (mx - mn + 1e-8)
+
+        return sal
+
+    def __call__(self, input_tensor, targets=None, class_idx=None, retain_graph=False):
+        if targets and isinstance(targets[0], ClassifierOutputTarget):
+            class_idx = targets[0].category
+        return self.forward(input_tensor, class_idx, retain_graph)
