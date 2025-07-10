@@ -3,7 +3,7 @@ Part of code borrows from https://github.com/1Konny/gradcam_plus_plus-pytorch
 Modified to accept direct target_layer module in model_dict.
 """
 import torch
-from utils import (
+from utils_folder import (
     find_alexnet_layer, find_vgg_layer, find_resnet_layer,
     find_densenet_layer, find_squeezenet_layer, find_layer,
     find_googlenet_layer, find_mobilenet_layer, find_shufflenet_layer

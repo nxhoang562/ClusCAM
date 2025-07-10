@@ -12,7 +12,7 @@ MODELS=(
 # Cấu hình chung
 CAM_METHOD="cluster"
 DATASET="datasets/ILSVRC2012_img_val"
-BASE_EXCEL_DIR="results/imagenet_val"
+BASE_EXCEL_DIR="results/imagenet_val_rerun"
 # K_VALUES=(2 5 10 15 20 30 35 40 45 50 55 60 65 70 75 80 85 90 95 100 105 110 115 120 125 130 135 140 145 150 155 160 165 170 175 180 185 190 195 200)
 K_VALUES=(90)
 # TOP_N=2
