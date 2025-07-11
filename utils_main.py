@@ -208,7 +208,7 @@ def batch_test(
         drops, incs, del_aucs, curves_records, infids = [], [], [], [], []
         ins_aucs = []
         ins_curves_records = []
-        senss = []
+        # senss = []
         
         if cam_method == "cluster":
             cam = CAM_FACTORY["cluster"](model_dict, num_clusters=c)
@@ -345,108 +345,108 @@ def batch_test(
             
         ##=======Tính Sensitivity=========================================================================#
         
-        # --- adapter cho PolyCAM ---
-            if cam_method in ("polyp", "polym", "polypm"):
-                def polycam_attr_fn(input_tensor, targets=None, **kwargs):
-                    # targets có thể là None, list[int], list[Tensor], list[ClassifierOutputTarget]
-                    if targets is None:
-                        idx = cls
-                    else:
-                        first = targets[0]
-                        if isinstance(first, ClassifierOutputTarget):
-                            idx = first.category
-                        elif isinstance(first, torch.Tensor):
-                            idx = first.item()
-                        else:
-                            idx = int(first)
-                    out = cam(input_tensor, class_idx=idx)
-                    # nếu trả về list/tuple thì lấy phần tử cuối cùng
-                    if isinstance(out, (list, tuple)):
-                        out = out[-1]
-                    # nếu là numpy array thì convert sang tensor
-                    if isinstance(out, np.ndarray):
-                        out = torch.from_numpy(out)
-                    # đảm bảo shape [1, C, H, W]
-                    if out.ndim == 3:
-                        out = out.unsqueeze(0)
-                    return out.to(device)
+        # # --- adapter cho PolyCAM ---
+        #     if cam_method in ("polyp", "polym", "polypm"):
+        #         def polycam_attr_fn(input_tensor, targets=None, **kwargs):
+        #             # targets có thể là None, list[int], list[Tensor], list[ClassifierOutputTarget]
+        #             if targets is None:
+        #                 idx = cls
+        #             else:
+        #                 first = targets[0]
+        #                 if isinstance(first, ClassifierOutputTarget):
+        #                     idx = first.category
+        #                 elif isinstance(first, torch.Tensor):
+        #                     idx = first.item()
+        #                 else:
+        #                     idx = int(first)
+        #             out = cam(input_tensor, class_idx=idx)
+        #             # nếu trả về list/tuple thì lấy phần tử cuối cùng
+        #             if isinstance(out, (list, tuple)):
+        #                 out = out[-1]
+        #             # nếu là numpy array thì convert sang tensor
+        #             if isinstance(out, np.ndarray):
+        #                 out = torch.from_numpy(out)
+        #             # đảm bảo shape [1, C, H, W]
+        #             if out.ndim == 3:
+        #                 out = out.unsqueeze(0)
+        #             return out.to(device)
 
-                attribution_fn = polycam_attr_fn
+        #         attribution_fn = polycam_attr_fn
                 
-            elif cam_method == "opticam":
-                def opticam_attr_fn(input_tensor, targets=None, **kwargs):
-                    # Lấy chỉ số class từ targets
-                    if targets is None:
-                        idx = cls
-                    else:
-                        first = targets[0]
-                        if isinstance(first, ClassifierOutputTarget):
-                            idx = first.category
-                        elif isinstance(first, torch.Tensor):
-                            idx = first.item()
-                        else:
-                            idx = int(first)
-                    # Tạo label_tensor đúng shape [1]
-                    label_tensor = torch.tensor([idx], device=device)
-                    # Gọi OptiCAM: trả về (norm_map, loss) hoặc tương tự
-                    norm_map, _ = cam(input_tensor, label_tensor)
-                    # Đưa về CPU, thành tensor, giữ shape [1, C, H, W]
-                    sal = norm_map.cpu()
-                    if sal.ndim == 3:
-                        sal = sal.unsqueeze(0)
-                    return sal.to(device)
+        #     elif cam_method == "opticam":
+        #         def opticam_attr_fn(input_tensor, targets=None, **kwargs):
+        #             # Lấy chỉ số class từ targets
+        #             if targets is None:
+        #                 idx = cls
+        #             else:
+        #                 first = targets[0]
+        #                 if isinstance(first, ClassifierOutputTarget):
+        #                     idx = first.category
+        #                 elif isinstance(first, torch.Tensor):
+        #                     idx = first.item()
+        #                 else:
+        #                     idx = int(first)
+        #             # Tạo label_tensor đúng shape [1]
+        #             label_tensor = torch.tensor([idx], device=device)
+        #             # Gọi OptiCAM: trả về (norm_map, loss) hoặc tương tự
+        #             norm_map, _ = cam(input_tensor, label_tensor)
+        #             # Đưa về CPU, thành tensor, giữ shape [1, C, H, W]
+        #             sal = norm_map.cpu()
+        #             if sal.ndim == 3:
+        #                 sal = sal.unsqueeze(0)
+        #             return sal.to(device)
 
-                attribution_fn = opticam_attr_fn
+        #         attribution_fn = opticam_attr_fn
                 
-            elif cam_method == "reciprocam":
-                def reciprocam_attr_fn(input_tensor, targets=None, **kwargs):
-                    # 1) Lấy class index từ targets (ClassifierOutputTarget, Tensor, hay int)
-                    if targets is None:
-                        idx = cls
-                    else:
-                        first = targets[0]
-                        if isinstance(first, ClassifierOutputTarget):
-                            idx = first.category
-                        elif isinstance(first, torch.Tensor):
-                            idx = first.item()
-                        else:
-                            idx = int(first)
-                    # 2) Gọi ReciproCam với đúng tham số index
-                    out_cam, _ = cam(input_tensor, index=idx)
-                    # 3) Chuyển sang tensor nếu cần
-                    if isinstance(out_cam, np.ndarray):
-                        out_cam = torch.from_numpy(out_cam)
-                    # 4) Đảm bảo shape [1, C, H, W]; giả sử out_cam là [H, W]
-                    if out_cam.ndim == 2:
-                        out_cam = out_cam.unsqueeze(0).unsqueeze(0)  # -> [1,1,H,W]
-                    elif out_cam.ndim == 3:
-                        out_cam = out_cam.unsqueeze(0)               # -> [1,C,H,W]
-                    return out_cam.to(device)
+        #     elif cam_method == "reciprocam":
+        #         def reciprocam_attr_fn(input_tensor, targets=None, **kwargs):
+        #             # 1) Lấy class index từ targets (ClassifierOutputTarget, Tensor, hay int)
+        #             if targets is None:
+        #                 idx = cls
+        #             else:
+        #                 first = targets[0]
+        #                 if isinstance(first, ClassifierOutputTarget):
+        #                     idx = first.category
+        #                 elif isinstance(first, torch.Tensor):
+        #                     idx = first.item()
+        #                 else:
+        #                     idx = int(first)
+        #             # 2) Gọi ReciproCam với đúng tham số index
+        #             out_cam, _ = cam(input_tensor, index=idx)
+        #             # 3) Chuyển sang tensor nếu cần
+        #             if isinstance(out_cam, np.ndarray):
+        #                 out_cam = torch.from_numpy(out_cam)
+        #             # 4) Đảm bảo shape [1, C, H, W]; giả sử out_cam là [H, W]
+        #             if out_cam.ndim == 2:
+        #                 out_cam = out_cam.unsqueeze(0).unsqueeze(0)  # -> [1,1,H,W]
+        #             elif out_cam.ndim == 3:
+        #                 out_cam = out_cam.unsqueeze(0)               # -> [1,C,H,W]
+        #             return out_cam.to(device)
 
-                attribution_fn = reciprocam_attr_fn
-            else:
-                # wrapper chung cho các CAM khác
-                def generic_attr_fn(input_tensor, targets=None, **kw):
-                    out = cam(input_tensor, targets=targets)
-                    # torch.as_tensor sẽ phụ hợp nếu out là numpy array hay tensor
-                    return torch.as_tensor(out).to(device)
+        #         attribution_fn = reciprocam_attr_fn
+        #     else:
+        #         # wrapper chung cho các CAM khác
+        #         def generic_attr_fn(input_tensor, targets=None, **kw):
+        #             out = cam(input_tensor, targets=targets)
+        #             # torch.as_tensor sẽ phụ hợp nếu out là numpy array hay tensor
+        #             return torch.as_tensor(out).to(device)
 
-                attribution_fn = generic_attr_fn
+        #         attribution_fn = generic_attr_fn
 
-            if cam_method == "shapleycam" or cam_method == "cluster":
-                senss.append(0)
-            else:
-                sens_val = Sensitivity()(
-                                        model=model,
-                                        test_images=img_tensor,
-                                        class_idx=torch.tensor([cls], device=device),
-                                        attribution_method=attribution_fn,
-                                        device=device,
-                                        return_mean=True,
-                                        layer=model_dict["target_layer"],
-                                        baseline_dist=torch.distributions.Normal(0, 0.1)
-                                    )
-                senss.append(sens_val)   
+        #     if cam_method == "shapleycam" or cam_method == "cluster":
+        #         senss.append(0)
+        #     else:
+        #         sens_val = Sensitivity()(
+        #                                 model=model,
+        #                                 test_images=img_tensor,
+        #                                 class_idx=torch.tensor([cls], device=device),
+        #                                 attribution_method=attribution_fn,
+        #                                 device=device,
+        #                                 return_mean=True,
+        #                                 layer=model_dict["target_layer"],
+        #                                 baseline_dist=torch.distributions.Normal(0, 0.1)
+        #                             )
+        #         senss.append(sens_val)   
         
         ##=======Tính deletion_curve==============================================================================##
             # Lấy deletion_curve chi tiết
@@ -525,7 +525,6 @@ def batch_test(
             "deletion_auc": del_aucs,
             "insertion_auc": ins_aucs,
             "infidelity": infids,
-            "sensitivity": senss,
             
             
         })
@@ -537,7 +536,6 @@ def batch_test(
             "deletion_auc": np.mean(del_aucs),
             "insertion_auc": np.mean(ins_aucs),
             "infidelity": np.mean(infids),
-            "sensitivity": np.mean(senss),
             
         }])
         df = pd.concat([avg_row, df], ignore_index=True)
