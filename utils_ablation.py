@@ -10,9 +10,9 @@ from pytorch_grad_cam import (
 )
 
 
-from cam.Cluscam import FeatureScoreCAM
+from cam.Cluscam import FeatureScoreCAM, DiffCAM
 from cam.HDBSCANcam import HDBSCANcam
-
+from cam.spectralcam import SpectralCAM  # Đổi tên từ ClusterScoreCAM
 
 from cam.polycam import PCAMp, PCAMm, PCAMpm
 from cam.recipro_cam import ReciproCam
@@ -130,6 +130,15 @@ CAM_FACTORY = {
         min_samples=md.get("min_samples", None),
         cluster_selection_epsilon=md.get("cluster_selection_epsilon", 0.05)
     ),
+    "diffcam": lambda md, **kw: DiffCAM(
+        model_dict=md),
+        
+    "spectralcam": lambda md, **kw: SpectralCAM(
+        model_dict=md,
+        zero_ratio=md.get("zero_ratio", 0.5),
+        temperature_dict=md.get("temperature_dict", {}),
+        temperature=md.get("temperature", 0.5)
+    ),
     
      "polyp": lambda md, **kw: PCAMp(
         model=md["arch"],
@@ -215,12 +224,11 @@ def batch_test(
     for c in ks:
         info = f"method={cam_method}" + (f", K={c}" if c else "")
         print(f"\n=== Testing {info} ===")
-        drops, incs, del_aucs, curves_records, infids = [], [], [], [], []
+        drops, incs, del_aucs, infids = [], [], [], []
         ins_aucs = []
-        ins_curves_records = []
         senss = []
         
-        if cam_method == "cluster":
+        if cam_method in ("cluster", "DiffCAM"):
             cam = CAM_FACTORY["cluster"](model_dict, num_clusters=c)
         elif cam_method == "reciprocam":
             cam = CAM_FACTORY["reciprocam"](model_dict)
@@ -355,130 +363,130 @@ def batch_test(
             
         ##=======Tính Sensitivity=========================================================================#
         
-        # --- adapter cho PolyCAM ---
-            if cam_method in ("polyp", "polym", "polypm"):
-                def polycam_attr_fn(input_tensor, targets=None, **kwargs):
-                    # targets có thể là None, list[int], list[Tensor], list[ClassifierOutputTarget]
-                    if targets is None:
-                        idx = cls
-                    else:
-                        first = targets[0]
-                        if isinstance(first, ClassifierOutputTarget):
-                            idx = first.category
-                        elif isinstance(first, torch.Tensor):
-                            idx = first.item()
-                        else:
-                            idx = int(first)
-                    out = cam(input_tensor, class_idx=idx)
-                    # nếu trả về list/tuple thì lấy phần tử cuối cùng
-                    if isinstance(out, (list, tuple)):
-                        out = out[-1]
-                    # nếu là numpy array thì convert sang tensor
-                    if isinstance(out, np.ndarray):
-                        out = torch.from_numpy(out)
-                    # đảm bảo shape [1, C, H, W]
-                    if out.ndim == 3:
-                        out = out.unsqueeze(0)
-                    return out.to(device)
+        # # --- adapter cho PolyCAM ---
+        #     if cam_method in ("polyp", "polym", "polypm"):
+        #         def polycam_attr_fn(input_tensor, targets=None, **kwargs):
+        #             # targets có thể là None, list[int], list[Tensor], list[ClassifierOutputTarget]
+        #             if targets is None:
+        #                 idx = cls
+        #             else:
+        #                 first = targets[0]
+        #                 if isinstance(first, ClassifierOutputTarget):
+        #                     idx = first.category
+        #                 elif isinstance(first, torch.Tensor):
+        #                     idx = first.item()
+        #                 else:
+        #                     idx = int(first)
+        #             out = cam(input_tensor, class_idx=idx)
+        #             # nếu trả về list/tuple thì lấy phần tử cuối cùng
+        #             if isinstance(out, (list, tuple)):
+        #                 out = out[-1]
+        #             # nếu là numpy array thì convert sang tensor
+        #             if isinstance(out, np.ndarray):
+        #                 out = torch.from_numpy(out)
+        #             # đảm bảo shape [1, C, H, W]
+        #             if out.ndim == 3:
+        #                 out = out.unsqueeze(0)
+        #             return out.to(device)
 
-                attribution_fn = polycam_attr_fn
+        #         attribution_fn = polycam_attr_fn
                 
-            elif cam_method == "opticam":
-                def opticam_attr_fn(input_tensor, targets=None, **kwargs):
-                    # Lấy chỉ số class từ targets
-                    if targets is None:
-                        idx = cls
-                    else:
-                        first = targets[0]
-                        if isinstance(first, ClassifierOutputTarget):
-                            idx = first.category
-                        elif isinstance(first, torch.Tensor):
-                            idx = first.item()
-                        else:
-                            idx = int(first)
-                    # Tạo label_tensor đúng shape [1]
-                    label_tensor = torch.tensor([idx], device=device)
-                    # Gọi OptiCAM: trả về (norm_map, loss) hoặc tương tự
-                    norm_map, _ = cam(input_tensor, label_tensor)
-                    # Đưa về CPU, thành tensor, giữ shape [1, C, H, W]
-                    sal = norm_map.cpu()
-                    if sal.ndim == 3:
-                        sal = sal.unsqueeze(0)
-                    return sal.to(device)
+        #     elif cam_method == "opticam":
+        #         def opticam_attr_fn(input_tensor, targets=None, **kwargs):
+        #             # Lấy chỉ số class từ targets
+        #             if targets is None:
+        #                 idx = cls
+        #             else:
+        #                 first = targets[0]
+        #                 if isinstance(first, ClassifierOutputTarget):
+        #                     idx = first.category
+        #                 elif isinstance(first, torch.Tensor):
+        #                     idx = first.item()
+        #                 else:
+        #                     idx = int(first)
+        #             # Tạo label_tensor đúng shape [1]
+        #             label_tensor = torch.tensor([idx], device=device)
+        #             # Gọi OptiCAM: trả về (norm_map, loss) hoặc tương tự
+        #             norm_map, _ = cam(input_tensor, label_tensor)
+        #             # Đưa về CPU, thành tensor, giữ shape [1, C, H, W]
+        #             sal = norm_map.cpu()
+        #             if sal.ndim == 3:
+        #                 sal = sal.unsqueeze(0)
+        #             return sal.to(device)
 
-                attribution_fn = opticam_attr_fn
+        #         attribution_fn = opticam_attr_fn
                 
-            elif cam_method == "reciprocam":
-                def reciprocam_attr_fn(input_tensor, targets=None, **kwargs):
-                    # 1) Lấy class index từ targets (ClassifierOutputTarget, Tensor, hay int)
-                    if targets is None:
-                        idx = cls
-                    else:
-                        first = targets[0]
-                        if isinstance(first, ClassifierOutputTarget):
-                            idx = first.category
-                        elif isinstance(first, torch.Tensor):
-                            idx = first.item()
-                        else:
-                            idx = int(first)
-                    # 2) Gọi ReciproCam với đúng tham số index
-                    out_cam, _ = cam(input_tensor, index=idx)
-                    # 3) Chuyển sang tensor nếu cần
-                    if isinstance(out_cam, np.ndarray):
-                        out_cam = torch.from_numpy(out_cam)
-                    # 4) Đảm bảo shape [1, C, H, W]; giả sử out_cam là [H, W]
-                    if out_cam.ndim == 2:
-                        out_cam = out_cam.unsqueeze(0).unsqueeze(0)  # -> [1,1,H,W]
-                    elif out_cam.ndim == 3:
-                        out_cam = out_cam.unsqueeze(0)               # -> [1,C,H,W]
-                    return out_cam.to(device)
+        #     elif cam_method == "reciprocam":
+        #         def reciprocam_attr_fn(input_tensor, targets=None, **kwargs):
+        #             # 1) Lấy class index từ targets (ClassifierOutputTarget, Tensor, hay int)
+        #             if targets is None:
+        #                 idx = cls
+        #             else:
+        #                 first = targets[0]
+        #                 if isinstance(first, ClassifierOutputTarget):
+        #                     idx = first.category
+        #                 elif isinstance(first, torch.Tensor):
+        #                     idx = first.item()
+        #                 else:
+        #                     idx = int(first)
+        #             # 2) Gọi ReciproCam với đúng tham số index
+        #             out_cam, _ = cam(input_tensor, index=idx)
+        #             # 3) Chuyển sang tensor nếu cần
+        #             if isinstance(out_cam, np.ndarray):
+        #                 out_cam = torch.from_numpy(out_cam)
+        #             # 4) Đảm bảo shape [1, C, H, W]; giả sử out_cam là [H, W]
+        #             if out_cam.ndim == 2:
+        #                 out_cam = out_cam.unsqueeze(0).unsqueeze(0)  # -> [1,1,H,W]
+        #             elif out_cam.ndim == 3:
+        #                 out_cam = out_cam.unsqueeze(0)               # -> [1,C,H,W]
+        #             return out_cam.to(device)
 
-                attribution_fn = reciprocam_attr_fn
-            else:
-                # wrapper chung cho các CAM khác
-                def generic_attr_fn(input_tensor, targets=None, **kw):
-                    out = cam(input_tensor, targets=targets)
-                    # torch.as_tensor sẽ phụ hợp nếu out là numpy array hay tensor
-                    return torch.as_tensor(out).to(device)
+        #         attribution_fn = reciprocam_attr_fn
+        #     else:
+        #         # wrapper chung cho các CAM khác
+        #         def generic_attr_fn(input_tensor, targets=None, **kw):
+        #             out = cam(input_tensor, targets=targets)
+        #             # torch.as_tensor sẽ phụ hợp nếu out là numpy array hay tensor
+        #             return torch.as_tensor(out).to(device)
 
-                attribution_fn = generic_attr_fn
+        #         attribution_fn = generic_attr_fn
 
-            if cam_method in ("shapleycam", "cluster", "hdbscan"):
-                senss.append(0)
-            else:
-                sens_val = Sensitivity()(
-                                        model=model,
-                                        test_images=img_tensor,
-                                        class_idx=torch.tensor([cls], device=device),
-                                        attribution_method=attribution_fn,
-                                        device=device,
-                                        return_mean=True,
-                                        layer=model_dict["target_layer"],
-                                        baseline_dist=torch.distributions.Normal(0, 0.1)
-                                    )
-                senss.append(sens_val)   
+        #     if cam_method in ("shapleycam", "cluster", "hdbscan"):
+        #         senss.append(0)
+        #     else:
+        #         sens_val = Sensitivity()(
+        #                                 model=model,
+        #                                 test_images=img_tensor,
+        #                                 class_idx=torch.tensor([cls], device=device),
+        #                                 attribution_method=attribution_fn,
+        #                                 device=device,
+        #                                 return_mean=True,
+        #                                 layer=model_dict["target_layer"],
+        #                                 baseline_dist=torch.distributions.Normal(0, 0.1)
+        #                             )
+        #         senss.append(sens_val)   
         
         ##=======Tính deletion_curve==============================================================================##
             # Lấy deletion_curve chi tiết
-            with torch.no_grad():
-                pixel_removed_perc, confidences = deletion_curve(
-                    model,
-                    img_tensor,
-                    sal_single,                   # shape [1,1,H,W]
-                    torch.tensor([cls], device=device),
-                    device=device,
-                    apply_softmax=True,
-                    num_points=30
-                )
-            pr = pixel_removed_perc[0].tolist()
-            cf = confidences[0].tolist()
-            for point_idx, (p, c_val) in enumerate(zip(pr, cf)):
-                curves_records.append({
-                    "image_path": os.path.basename(path),
-                    "point_idx": point_idx,
-                    "pixel_removed_perc": p,
-                    "confidence": c_val
-                })
+            # with torch.no_grad():
+            #     pixel_removed_perc, confidences = deletion_curve(
+            #         model,
+            #         img_tensor,
+            #         sal_single,                   # shape [1,1,H,W]
+            #         torch.tensor([cls], device=device),
+            #         device=device,
+            #         apply_softmax=True,
+            #         num_points=30
+            #     )
+            # pr = pixel_removed_perc[0].tolist()
+            # cf = confidences[0].tolist()
+            # for point_idx, (p, c_val) in enumerate(zip(pr, cf)):
+            #     curves_records.append({
+            #         "image_path": os.path.basename(path),
+            #         "point_idx": point_idx,
+            #         "pixel_removed_perc": p,
+            #         "confidence": c_val
+            #     })
             
             # Tính deletion AUC để summary
             del_auc = DeletionCurveAUC()(
@@ -494,25 +502,25 @@ def batch_test(
 
             del_aucs.append(del_auc)
         #=======Tính insertion_curve=======#
-            with torch.no_grad():
-                ins_range, ins_vals = insertion_curve(
-                                                    model,
-                                                    img_tensor,
-                                                    sal_single,                   # [1,1,H,W]
-                                                    torch.tensor([cls], device=device),
-                                                    device=device,
-                                                    apply_softmax=True,
-                                                    num_points=30
-                                                )
-            pr_ins = ins_range[0].tolist()
-            cf_ins = ins_vals[0].tolist()
-            for point_idx, (p, c_val) in enumerate(zip(pr_ins, cf_ins)):
-                ins_curves_records.append({
-                    "image_path": os.path.basename(path),
-                    "point_idx": point_idx,
-                    "pixel_restored_perc": p,
-                    "confidence": c_val
-                })
+            # with torch.no_grad():
+            #     ins_range, ins_vals = insertion_curve(
+            #                                         model,
+            #                                         img_tensor,
+            #                                         sal_single,                   # [1,1,H,W]
+            #                                         torch.tensor([cls], device=device),
+            #                                         device=device,
+            #                                         apply_softmax=True,
+            #                                         num_points=30
+            #                                     )
+            # pr_ins = ins_range[0].tolist()
+            # cf_ins = ins_vals[0].tolist()
+            # for point_idx, (p, c_val) in enumerate(zip(pr_ins, cf_ins)):
+            #     ins_curves_records.append({
+            #         "image_path": os.path.basename(path),
+            #         "point_idx": point_idx,
+            #         "pixel_restored_perc": p,
+            #         "confidence": c_val
+            #     })
             
             ins_auc = InsertionCurveAUC()(    
                                         model=model,
@@ -560,37 +568,37 @@ def batch_test(
             df.to_excel(writer, sheet_name=sheet_name, index=False)
         print(f"Saved sheet {sheet_name} in {full_path}")
         
-        #=================================Lưu các deletion curves và insetion curves vao another file Excel==========================================================================#
+        # #=================================Lưu các deletion curves và insetion curves vao another file Excel==========================================================================#
         
-        # 1. Chuyển thành DataFrame và rename để rõ ràng
-        df_del = pd.DataFrame(curves_records).rename(
-            columns={
-                "pixel_removed_perc": "pixel_removed_perc",
-                "confidence":         "deletion_confidence"
-            }
-        )
-        df_ins = pd.DataFrame(ins_curves_records).rename(
-            columns={
-                "pixel_restored_perc": "pixel_restored_perc",
-                "confidence":          "insertion_confidence"
-            }
-        )
+        # # 1. Chuyển thành DataFrame và rename để rõ ràng
+        # df_del = pd.DataFrame(curves_records).rename(
+        #     columns={
+        #         "pixel_removed_perc": "pixel_removed_perc",
+        #         "confidence":         "deletion_confidence"
+        #     }
+        # )
+        # df_ins = pd.DataFrame(ins_curves_records).rename(
+        #     columns={
+        #         "pixel_restored_perc": "pixel_restored_perc",
+        #         "confidence":          "insertion_confidence"
+        #     }
+        # )
 
-        # 2. Merge theo image_path và point_idx
-        df_curves = pd.merge(
-            df_del,
-            df_ins,
-            on=["image_path", "point_idx"],
-            how="outer"   # nếu bạn muốn giữ cả những điểm có trong 1 trong 2
-        )
+        # # 2. Merge theo image_path và point_idx
+        # df_curves = pd.merge(
+        #     df_del,
+        #     df_ins,
+        #     on=["image_path", "point_idx"],
+        #     how="outer"   # nếu bạn muốn giữ cả những điểm có trong 1 trong 2
+        # )
 
-        # 3. Ghi vào sheet method duy nhất trong file *_deletion_curves.xlsx
-        root, ext = os.path.splitext(full_path)
-        curves_path = f"{root}_deletion_curves{ext}"
+        # # 3. Ghi vào sheet method duy nhất trong file *_deletion_curves.xlsx
+        # root, ext = os.path.splitext(full_path)
+        # curves_path = f"{root}_deletion_curves{ext}"
         
-        curve_mode = "a" if os.path.exists(curves_path) else "w"
-        with pd.ExcelWriter(curves_path, engine="openpyxl", mode=curve_mode, if_sheet_exists="replace" if curve_mode == "a" else None) as writer:
-            df_curves.to_excel(writer, sheet_name=sheet_name, index=False)
+        # curve_mode = "a" if os.path.exists(curves_path) else "w"
+        # with pd.ExcelWriter(curves_path, engine="openpyxl", mode=curve_mode, if_sheet_exists="replace" if curve_mode == "a" else None) as writer:
+        #     df_curves.to_excel(writer, sheet_name=sheet_name, index=False)
 
-        print(f"Saved combined curves sheet {sheet_name} in {curves_path}")
+        # print(f"Saved combined curves sheet {sheet_name} in {curves_path}")
 

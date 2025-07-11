@@ -29,7 +29,7 @@ for MODEL in "${MODELS[@]}"; do
       EXCEL_PATH="${BASE_EXCEL_DIR}/HDBSCAN_${MODEL}_zr${ZERO_RATIO}_temp${TEMPERATURE}_1001-2001imgs.xlsx"
       mkdir -p "$(dirname "$EXCEL_PATH")"
 
-      python3 test_main.py \
+      python3 test_ablation.py \
         --mode batch \
         --model "${MODEL}" \
         --dataset "${DATASET}" \

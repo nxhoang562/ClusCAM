@@ -7,7 +7,7 @@ MODELS=(
 )
 
 # Cấu hình chung
-CAM_METHOD="cluster"
+CAM_METHOD="spectralcam"
 DATASET="/home/infres/ltvo/ClusCAM/datasets/imagenet/val_flattened"
 BASE_EXCEL_DIR="results/abalation_resenet18"
 K_VALUES=(10 50)
@@ -16,8 +16,8 @@ END_IDX=2001
 MODE_TYPE="test"
 
 
-ZERO_RATIOS=(0 0.5)
-TEMPERATURES=(1 0.5)
+ZERO_RATIOS=(0)
+TEMPERATURES=(1)
 
 for MODEL in "${MODELS[@]}"; do
   for ZERO_RATIO in "${ZERO_RATIOS[@]}"; do
@@ -26,7 +26,7 @@ for MODEL in "${MODELS[@]}"; do
       echo "==== $MODE_TYPE with $MODEL (zero_ratio=${ZERO_RATIO}, temperature=${TEMPERATURE}) ===="
 
       # Đường dẫn lưu Excel riêng cho từng cấu hình
-      EXCEL_PATH="${BASE_EXCEL_DIR}/${CAM_METHOD}_${K_VALUES}_${MODEL}_zr${ZERO_RATIO}_temp${TEMPERATURE}_1001-2001imgs.xlsx"
+      EXCEL_PATH="${BASE_EXCEL_DIR}/spectralcam_${MODEL}_${K_VALUES}_zr${ZERO_RATIO}_temp${TEMPERATURE}_1001-2001imgs.xlsx"
       mkdir -p "$(dirname "$EXCEL_PATH")"
 
       python3 test_ablation.py \

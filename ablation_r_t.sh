@@ -9,15 +9,17 @@ MODELS=(
 # Cấu hình chung
 CAM_METHOD="cluster"
 DATASET="/home/infres/ltvo/ClusCAM/datasets/imagenet/val_flattened"
-BASE_EXCEL_DIR="results/abalation_resenet18"
-K_VALUES=(10 50)
+BASE_EXCEL_DIR="results/abalation_r_t"
+K_VALUES=(50 100)
 START_IDX=1001
 END_IDX=2001
 MODE_TYPE="test"
 
 
-ZERO_RATIOS=(0 0.5)
-TEMPERATURES=(1 0.5)
+# ZERO_RATIOS=(0.5)
+# TEMPERATURES=(0 0.1 0.3 0.5 0.7 0.9)
+TEMPERATURES=(0.5)
+ZERO_RATIOS=(0 0.1 0.3 0.5 0.7 0.9)
 
 for MODEL in "${MODELS[@]}"; do
   for ZERO_RATIO in "${ZERO_RATIOS[@]}"; do

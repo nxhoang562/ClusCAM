@@ -6,7 +6,7 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 
-from utils import load_image, list_image_paths
+from utils_folder import load_image, list_image_paths
 from metrics.average_drop import AverageDrop
 from metrics.average_increase import AverageIncrease
 from metrics.coherency import Coherency
