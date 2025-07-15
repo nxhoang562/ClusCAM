@@ -39,26 +39,26 @@ class PScore:
         return float(np.dot(na, ng) / (np.linalg.norm(na) * np.linalg.norm(ng) + self.eps))
 
 
-def compute_pseudo_gt(models, input_tensor, target_category):
+def compute_pseudo_gt(models, input_tensor, target_category, CamClass):
     """
-    Compute pseudo-ground-truth by averaging GradCAM maps across models.
-    For each model, use its own layer4[-1] as target layer.
+    Compute pseudo-ground-truth by averaging CAM maps across models for a specific CamClass.
+    Each model uses its layer4[-1] as the target layer.
     """
     cams = []
     for m in models:
         target_layer = m.layer4[-1]
-        cam = GradCAM(model=m, target_layers=[target_layer])
+        cam = CamClass(model=m, target_layers=[target_layer])
         out = cam(input_tensor, targets=[ClassifierOutputTarget(target_category)])[0]
+        cams.append(out.astype(np.float32))
         try:
             cam.activations_and_grads.release()
         except Exception:
             pass
-        cams.append(out.astype(np.float32))
 
     arr = np.stack(cams, 0)
+    # Normalize each map to [0,1]
     normed = [(x - x.min()) / (x.max() - x.min() + 1e-8) for x in arr]
     return np.mean(np.stack(normed, 0), axis=0)
-
 
 
 if __name__ == '__main__':
@@ -118,32 +118,38 @@ if __name__ == '__main__':
     img_names = []
 
     for img_path in tqdm(img_list, desc='Processing Images'):
-
         img_names.append(os.path.basename(img_path))
         inp, _ = load_image(img_path, device)
 
         # determine target class using one reference model
         ref = next(iter(pseudo_models.values()))
-        print(f"Processing image: {img_path} -> {ref.__class__.__name__}")
+        print(f"Processing image: {img_path}")
         with torch.no_grad():
             pred = ref(inp)
         tgt = pred.argmax(dim=1).item()
 
-        # compute pseudo-ground-truth
-        pseudo = compute_pseudo_gt(list(pseudo_models.values()), inp, tgt)
+        # compute pseudo-ground-truth for each CAM method
+        pseudo_gts = {}
+        for cam_name, CamClass in cam_methods.items():
+            pseudo_gts[cam_name] = compute_pseudo_gt(
+                list(pseudo_models.values()), inp, tgt, CamClass
+            )
 
         # score each CAM method on each model
         for m_name, (ctor, weights) in model_specs.items():
+            print(f"Evaluating {m_name} with {len(pseudo_gts)} CAM methods")
             model = ctor(weights=weights).to(device).eval()
             lyr = model.layer4[-1]
-            for cam_name, Cam in cam_methods.items():
-                cam = Cam(model=model, target_layers=[lyr])
+            for cam_name, CamClass in cam_methods.items():
+                print(f"  Using {cam_name}...")
+                cam = CamClass(model=model, target_layers=[lyr])
                 gmap = cam(inp, targets=[ClassifierOutputTarget(tgt)])[0]
                 try:
                     cam.activations_and_grads.release()
                 except Exception:
                     pass
-                results[cam_name][m_name].append(PScore()(gmap, pseudo))
+                score = PScore()(gmap, pseudo_gts[cam_name])
+                results[cam_name][m_name].append(score)
 
     # export Excel
     with pd.ExcelWriter(args.output, engine='openpyxl') as writer:
@@ -151,7 +157,6 @@ if __name__ == '__main__':
             df = pd.DataFrame(data, index=img_names)
             avg = df.mean().to_frame().T
             avg.index = ['Average']
-            # SỬA CHỖ NÀY: thêm axis=0
             pd.concat([avg, df], axis=0).to_excel(writer, sheet_name=cam_name)
 
     print(f"Done [{len(img_list)} images]. Saved -> {args.output}")
