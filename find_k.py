@@ -4,7 +4,7 @@ import torch
 import pandas as pd
 import numpy as np
 from torchvision import transforms
-from torchvision.models import resnet18, ResNet18_Weights, inception_v3, Inception_V3_Weights
+from torchvision.models import resnet18, ResNet18_Weights, inception_v3, Inception_V3_Weights, resnet34, ResNet34_Weights, efficientnet_b0, EfficientNet_B0_Weights
 from torchvision.models.inception import InceptionOutputs
 from utils_folder import load_image, list_image_paths
 from cam.basecam import BaseCAM
@@ -12,6 +12,7 @@ from sklearn.cluster import KMeans
 import torch.nn.functional as F
 from tqdm import tqdm  # progress bar
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
+import torch.nn as nn
 class ClusterScoreCAM(BaseCAM):
     """
     Score-CAM với clustering, tuỳ chỉnh zero-out và temperature đối với một class nhất định.
@@ -215,20 +216,75 @@ if __name__ == "__main__":
     # r18 = resnet18(weights=weights)
     # r18_dict = {"arch": r18, "target_layer": r18.layer4[-1]}
     
-    weights = Inception_V3_Weights.DEFAULT
-    inc = inception_v3(weights=weights)  # tắt aux để forward chỉ trả về logits chính
-    inc_dict = {
-        "arch": inc,
-        # “target_layer” có thể chọn lớp cuối cùng trước pooling, ví dụ Mixed_7c
-        "target_layer": inc.Mixed_7c
+    # test_cluster_cam_single(
+    #     model=r18,
+    #     model_dict=r18_dict,
+    #     image_folder="/home/infres/ltvo/ClusCAM/datasets/imagenet/val_flattened", 
+    #     k_list=[2, 4, 6, 8, 10, 15,20,25,30,35,40,45,50,55,60,65,70,80,90,100,110,120,130],
+    #     output_excel="/home/infres/ltvo/ClusCAM/results/validation/Resnet18_zr-0.5_t-0.5_1000-imgs.xlsx",
+    #     top_n=1000,
+    #     random_sample=True
+    # )
+    
+    #  # --- Chạy với ResNet-34 ---
+    # weights = ResNet34_Weights.DEFAULT
+    # r34 = resnet34(weights=weights)
+    # # chọn target_layer là block cuối cùng của layer4
+    # r34_dict = {
+    #     "arch": r34,
+    #     "target_layer": r34.layer4[-1]
+    # }
+
+    # test_cluster_cam_single(
+    #     model=r34,
+    #     model_dict=r34_dict,
+    #     image_folder="/home/infres/ltvo/ClusCAM/datasets/imagenet/val_flattened",
+    #     k_list=[2, 4, 6, 8, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 80, 90, 100, 110, 120, 130],
+    #     output_excel="/home/infres/ltvo/ClusCAM/results/validation/Resnet34_zr-0.5_t-0.5_1000-imgs.xlsx",
+    #     top_n=1000,
+    #     random_sample=True
+    # )
+    
+       # --- Chạy với EfficientNet-B0 ---
+    weights = EfficientNet_B0_Weights.IMAGENET1K_V1
+    eff = efficientnet_b0(weights=weights)
+    # Chọn lớp conv cuối cùng trước pooling: đây thường là features[-1][2]
+    for m in eff.modules():
+        if isinstance(m, nn.SiLU):
+            m.inplace = False
+    eff_dict = {
+        "arch": eff,
+        "target_layer": eff.features[-1][2]  # conv2d trong block cuối
     }
 
     test_cluster_cam_single(
-        model=inc,
-        model_dict=inc_dict,
-        image_folder="/home/infres/ltvo/ClusCAM/datasets/imagenet/val_flattened", 
-        k_list=[2, 4, 6, 8, 10, 15,20,25,30,35,40,45,50,55,60,65,70,80,90,100,110,120,130],
-        output_excel="/home/infres/ltvo/ClusCAM/results/validation/InceptionetV3_zr-0.5_t-0.5_1000-imgs.xlsx",
+        model=eff,
+        model_dict=eff_dict,
+        image_folder="/home/infres/ltvo/ClusCAM/datasets/imagenet/val_flattened",
+        k_list=[2, 4, 6, 8, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 80, 90, 100, 110, 120, 130],
+        output_excel="/home/infres/ltvo/ClusCAM/results/validation/EfficientNetB0_zr-0.5_t-0.5_1000-imgs.xlsx",
         top_n=1000,
         random_sample=True
     )
+    
+    # weights = Inception_V3_Weights.DEFAULT
+    # inc = inception_v3(weights=weights)  # tắt aux để forward chỉ trả về logits chính
+    # inc_dict = {
+    #     "arch": inc,
+    #     # “target_layer” có thể chọn lớp cuối cùng trước pooling, ví dụ Mixed_7c
+    #     "target_layer": inc.Mixed_7c
+    # }
+    
+
+
+    # test_cluster_cam_single(
+    #     model=inc,
+    #     model_dict=inc_dict,
+    #     image_folder="/home/infres/ltvo/ClusCAM/datasets/imagenet/val_flattened", 
+    #     k_list=[2, 4, 6, 8, 10, 15,20,25,30,35,40,45,50,55,60,65,70,80,90,100,110,120,130],
+    #     output_excel="/home/infres/ltvo/ClusCAM/results/validation/InceptionetV3_zr-0.5_t-0.5_1000-imgs.xlsx",
+    #     top_n=1000,
+    #     random_sample=True
+    # )
+    
+    

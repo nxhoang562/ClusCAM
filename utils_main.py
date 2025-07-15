@@ -26,6 +26,7 @@ from metrics import (
     insertion_curve,
     InsertionCurveAUC,
     Sensitivity,  
+    AverageConfidence,
 )
 
 
@@ -208,6 +209,7 @@ def batch_test(
         drops, incs, del_aucs, curves_records, infids = [], [], [], [], []
         ins_aucs = []
         ins_curves_records = []
+        cfds = []
         # senss = []
         
         if cam_method == "cluster":
@@ -268,6 +270,7 @@ def batch_test(
             
             drop = AverageDrop()(model, img_tensor, sal3, cls, device, True)
             inc = AverageIncrease()(model, img_tensor, sal3, cls, device, True)
+            cfd = AverageConfidence()(model, img_tensor, sal3, cls, device, True)
                
             
         # # Với các phương pháp polyCAM, cần adapter để Coherency gọi đúng signature
@@ -327,21 +330,22 @@ def batch_test(
             # adcc = 3 / ((1/coher) + 1/(1-comp) + 1/(1 - drop/100))
             drops.append(drop)
             incs.append(inc)
+            cfds.append(cfd)
             # cohers.append(coher*100)  # Chuyển sang phần trăm
             # comps.append(comp*100)  # Chuyển sang phần trăm
             # adccs.append(adcc*100)  # Chuyển sang phần trăm
         
         ##========================================================##
-            sal_single = sal3.mean(dim=1, keepdim=True)
-            infid = Infidelity()(
-            model=model,
-            test_images=img_tensor,          # [1, C, H, W]
-            saliency_maps=sal_single,        # [1, 1, H, W]
-            class_idx=torch.tensor([cls], device=device),
-            device=device,
-            return_mean=True
-            )
-            infids.append(infid)
+            # sal_single = sal3.mean(dim=1, keepdim=True)
+            # infid = Infidelity()(
+            # model=model,
+            # test_images=img_tensor,          # [1, C, H, W]
+            # saliency_maps=sal_single,        # [1, 1, H, W]
+            # class_idx=torch.tensor([cls], device=device),
+            # device=device,
+            # return_mean=True
+            # )
+            # infids.append(infid)
             
         ##=======Tính Sensitivity=========================================================================#
         
@@ -450,71 +454,71 @@ def batch_test(
         
         ##=======Tính deletion_curve==============================================================================##
             # Lấy deletion_curve chi tiết
-            with torch.no_grad():
-                pixel_removed_perc, confidences = deletion_curve(
-                    model,
-                    img_tensor,
-                    sal_single,                   # shape [1,1,H,W]
-                    torch.tensor([cls], device=device),
-                    device=device,
-                    apply_softmax=True,
-                    num_points=30
-                )
-            pr = pixel_removed_perc[0].tolist()
-            cf = confidences[0].tolist()
-            for point_idx, (p, c_val) in enumerate(zip(pr, cf)):
-                curves_records.append({
-                    "image_path": os.path.basename(path),
-                    "point_idx": point_idx,
-                    "pixel_removed_perc": p,
-                    "confidence": c_val
-                })
+        #     with torch.no_grad():
+        #         pixel_removed_perc, confidences = deletion_curve(
+        #             model,
+        #             img_tensor,
+        #             sal_single,                   # shape [1,1,H,W]
+        #             torch.tensor([cls], device=device),
+        #             device=device,
+        #             apply_softmax=True,
+        #             num_points=30
+        #         )
+        #     pr = pixel_removed_perc[0].tolist()
+        #     cf = confidences[0].tolist()
+        #     for point_idx, (p, c_val) in enumerate(zip(pr, cf)):
+        #         curves_records.append({
+        #             "image_path": os.path.basename(path),
+        #             "point_idx": point_idx,
+        #             "pixel_removed_perc": p,
+        #             "confidence": c_val
+        #         })
             
-            # Tính deletion AUC để summary
-            del_auc = DeletionCurveAUC()(
-                model=model,
-                test_images=img_tensor,
-                saliency_maps=sal_single,
-                class_idx=torch.tensor([cls], device=device),
-                attribution_method=None,
-                device=device,
-                apply_softmax=True, 
-                return_mean=True # False để trả về tensor AUC cho từng ảnh, nhưng do chạy với từng ảnh nên True vẫn đúng
-            )
+        #     # Tính deletion AUC để summary
+        #     del_auc = DeletionCurveAUC()(
+        #         model=model,
+        #         test_images=img_tensor,
+        #         saliency_maps=sal_single,
+        #         class_idx=torch.tensor([cls], device=device),
+        #         attribution_method=None,
+        #         device=device,
+        #         apply_softmax=True, 
+        #         return_mean=True # False để trả về tensor AUC cho từng ảnh, nhưng do chạy với từng ảnh nên True vẫn đúng
+        #     )
 
-            del_aucs.append(del_auc)
-        #=======Tính insertion_curve=======#
-            with torch.no_grad():
-                ins_range, ins_vals = insertion_curve(
-                                                    model,
-                                                    img_tensor,
-                                                    sal_single,                   # [1,1,H,W]
-                                                    torch.tensor([cls], device=device),
-                                                    device=device,
-                                                    apply_softmax=True,
-                                                    num_points=30
-                                                )
-            pr_ins = ins_range[0].tolist()
-            cf_ins = ins_vals[0].tolist()
-            for point_idx, (p, c_val) in enumerate(zip(pr_ins, cf_ins)):
-                ins_curves_records.append({
-                    "image_path": os.path.basename(path),
-                    "point_idx": point_idx,
-                    "pixel_restored_perc": p,
-                    "confidence": c_val
-                })
+        #     del_aucs.append(del_auc)
+        # #=======Tính insertion_curve=======#
+        #     with torch.no_grad():
+        #         ins_range, ins_vals = insertion_curve(
+        #                                             model,
+        #                                             img_tensor,
+        #                                             sal_single,                   # [1,1,H,W]
+        #                                             torch.tensor([cls], device=device),
+        #                                             device=device,
+        #                                             apply_softmax=True,
+        #                                             num_points=30
+        #                                         )
+        #     pr_ins = ins_range[0].tolist()
+        #     cf_ins = ins_vals[0].tolist()
+        #     for point_idx, (p, c_val) in enumerate(zip(pr_ins, cf_ins)):
+        #         ins_curves_records.append({
+        #             "image_path": os.path.basename(path),
+        #             "point_idx": point_idx,
+        #             "pixel_restored_perc": p,
+        #             "confidence": c_val
+        #         })
             
-            ins_auc = InsertionCurveAUC()(    
-                                        model=model,
-                                        test_images=img_tensor,
-                                        saliency_maps=sal_single,
-                                        class_idx=torch.tensor([cls], device=device),
-                                        attribution_method=None,
-                                        device=device,
-                                        apply_softmax=True,
-                                        return_mean=True
-                                        )
-            ins_aucs.append(ins_auc)
+        #     ins_auc = InsertionCurveAUC()(    
+        #                                 model=model,
+        #                                 test_images=img_tensor,
+        #                                 saliency_maps=sal_single,
+        #                                 class_idx=torch.tensor([cls], device=device),
+        #                                 attribution_method=None,
+        #                                 device=device,
+        #                                 apply_softmax=True,
+        #                                 return_mean=True
+        #                                 )
+        #     ins_aucs.append(ins_auc)
             
        
         df = pd.DataFrame({
@@ -522,9 +526,10 @@ def batch_test(
             "top1_index": top1_idxs,
             "average_drop": drops,
             "increase_confidence": incs,
-            "deletion_auc": del_aucs,
-            "insertion_auc": ins_aucs,
-            "infidelity": infids,
+            # "deletion_auc": del_aucs,
+            # "insertion_auc": ins_aucs,
+            # "infidelity": infids,
+            "average_confidence": cfds,
             
             
         })
@@ -533,9 +538,10 @@ def batch_test(
             "top1_index": "",
             "average_drop": np.mean(drops),
             "increase_confidence": np.mean(incs),
-            "deletion_auc": np.mean(del_aucs),
-            "insertion_auc": np.mean(ins_aucs),
-            "infidelity": np.mean(infids),
+            # "deletion_auc": np.mean(del_aucs),
+            # "insertion_auc": np.mean(ins_aucs),
+            # "infidelity": np.mean(infids),
+            "average_confidence": np.mean(cfds),
             
         }])
         df = pd.concat([avg_row, df], ignore_index=True)
@@ -550,35 +556,35 @@ def batch_test(
         
         #=================================Lưu các deletion curves và insetion curves vao another file Excel==========================================================================#
         
-        # 1. Chuyển thành DataFrame và rename để rõ ràng
-        df_del = pd.DataFrame(curves_records).rename(
-            columns={
-                "pixel_removed_perc": "pixel_removed_perc",
-                "confidence":         "deletion_confidence"
-            }
-        )
-        df_ins = pd.DataFrame(ins_curves_records).rename(
-            columns={
-                "pixel_restored_perc": "pixel_restored_perc",
-                "confidence":          "insertion_confidence"
-            }
-        )
+        # # 1. Chuyển thành DataFrame và rename để rõ ràng
+        # df_del = pd.DataFrame(curves_records).rename(
+        #     columns={
+        #         "pixel_removed_perc": "pixel_removed_perc",
+        #         "confidence":         "deletion_confidence"
+        #     }
+        # )
+        # df_ins = pd.DataFrame(ins_curves_records).rename(
+        #     columns={
+        #         "pixel_restored_perc": "pixel_restored_perc",
+        #         "confidence":          "insertion_confidence"
+        #     }
+        # )
 
-        # 2. Merge theo image_path và point_idx
-        df_curves = pd.merge(
-            df_del,
-            df_ins,
-            on=["image_path", "point_idx"],
-            how="outer"   # nếu bạn muốn giữ cả những điểm có trong 1 trong 2
-        )
+        # # 2. Merge theo image_path và point_idx
+        # df_curves = pd.merge(
+        #     df_del,
+        #     df_ins,
+        #     on=["image_path", "point_idx"],
+        #     how="outer"   # nếu bạn muốn giữ cả những điểm có trong 1 trong 2
+        # )
 
-        # 3. Ghi vào sheet method duy nhất trong file *_deletion_curves.xlsx
-        root, ext = os.path.splitext(full_path)
-        curves_path = f"{root}_deletion_curves{ext}"
+        # # 3. Ghi vào sheet method duy nhất trong file *_deletion_curves.xlsx
+        # root, ext = os.path.splitext(full_path)
+        # curves_path = f"{root}_deletion_curves{ext}"
         
-        curve_mode = "a" if os.path.exists(curves_path) else "w"
-        with pd.ExcelWriter(curves_path, engine="openpyxl", mode=curve_mode, if_sheet_exists="replace" if curve_mode == "a" else None) as writer:
-            df_curves.to_excel(writer, sheet_name=sheet_name, index=False)
+        # curve_mode = "a" if os.path.exists(curves_path) else "w"
+        # with pd.ExcelWriter(curves_path, engine="openpyxl", mode=curve_mode, if_sheet_exists="replace" if curve_mode == "a" else None) as writer:
+        #     df_curves.to_excel(writer, sheet_name=sheet_name, index=False)
 
-        print(f"Saved combined curves sheet {sheet_name} in {curves_path}")
+        # print(f"Saved combined curves sheet {sheet_name} in {curves_path}")
 

@@ -37,10 +37,10 @@ BASELINE_CAM_METHODS=(
   #           "layercam", "scorecam", "ablationcam", "shapleycam"
 
 # Cấu hình chung
-DATASET="datasets/ILSVRC2012_img_val"
-BASE_EXCEL_DIR="results/imagenet_val_rerun"
+DATASET="/home/infres/ltvo/ClusCAM/datasets/imagenet/val_flattened"
+BASE_EXCEL_DIR="results/test_metrics"
 START_IDX=1001
-END_IDX=4001
+END_IDX=1501
 # Tạo thư mục chung nếu chưa có
 mkdir -p "$BASE_EXCEL_DIR"
 

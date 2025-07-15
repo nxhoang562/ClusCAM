@@ -7,7 +7,7 @@ from .deletion_curve import DeletionCurveAUC, deletion_curve
 from .infidelity      import Infidelity
 from .insertion_curve import InsertionCurveAUC, insertion_curve
 from .sensitivity     import Sensitivity
-
+from .average_confidence import AverageConfidence
 
 
 __all__ = [
@@ -21,4 +21,5 @@ __all__ = [
     "InsertionCurveAUC",
     "insertion_curve",
     "Sensitivity",
+    "AverageConfidence",
 ]

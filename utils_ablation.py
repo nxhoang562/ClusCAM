@@ -543,7 +543,6 @@ def batch_test(
             "deletion_auc": del_aucs,
             "insertion_auc": ins_aucs,
             "infidelity": infids,
-            "sensitivity": senss,
             
             
         })
@@ -555,7 +554,6 @@ def batch_test(
             "deletion_auc": np.mean(del_aucs),
             "insertion_auc": np.mean(ins_aucs),
             "infidelity": np.mean(infids),
-            "sensitivity": np.mean(senss),
             
         }])
         df = pd.concat([avg_row, df], ignore_index=True)
