@@ -3,16 +3,9 @@ set -euo pipefail
 
 # Danh sách các model muốn test
 MODELS=(
-  resnet18
-  resnet34
-  inception_v3
-  efficientNet
-  resnet50
-  vgg16
-  resnet101
-  resnet152
+  'inception_v3'
+  'efficientNet'
 )
-
 
 BASELINE_CAM_METHODS=(
   "gradcam"
@@ -26,21 +19,11 @@ BASELINE_CAM_METHODS=(
   "reciprocam"
 )
 
-# BASELINE_CAM_METHODS=(
-# "gradcam"
-# "polypm"
-# "opticam"
-# "reciprocam"
-# )
-
-  # "cluster", "gradcam", "gradcamplusplus",
-  #           "layercam", "scorecam", "ablationcam", "shapleycam"
-
 # Cấu hình chung
 DATASET="/home/infres/ltvo/ClusCAM/datasets/imagenet/val_flattened"
-BASE_EXCEL_DIR="results/test_metrics"
+BASE_EXCEL_DIR="results/performance_results"
 START_IDX=1001
-END_IDX=1501
+END_IDX=3001
 # Tạo thư mục chung nếu chưa có
 mkdir -p "$BASE_EXCEL_DIR"
 

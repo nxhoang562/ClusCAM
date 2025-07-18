@@ -4,14 +4,23 @@ import torchvision.models as models
 from torchvision.models import (
     inception_v3, Inception_V3_Weights,
     ResNet18_Weights, ResNet34_Weights, ResNet50_Weights,
-    ResNet101_Weights, ResNet152_Weights, efficientnet_b0, EfficientNet_B0_Weights
+    ResNet101_Weights, ResNet152_Weights, efficientnet_b0, EfficientNet_B0_Weights,
+    vit_b_16, ViT_B_16_Weights
 )
 
 from args import get_args
 
-###Doi cac che do tai day #####
+
 from utils_main import batch_test
 from models.alzheimer_resnet18.alzheimer_resnet18 import load_model
+
+
+def reshape_transform(tensor, height=14, width=14):
+    # ViT-specific reshape
+    result = tensor[:, 1:, :].reshape(tensor.size(0), height, width, tensor.size(2))
+    # bring channels to first dim
+    result = result.transpose(2, 3).transpose(1, 2)
+    return result
 
 
 def main():
@@ -52,6 +61,7 @@ def main():
         model.eval()
         input_size = (299, 299)
         target_layer = model.Mixed_7c  # Inception V3 sử dụng Mixed_   
+        
     elif args.model == 'efficientNet':
         model = efficientnet_b0(weights=EfficientNet_B0_Weights.IMAGENET1K_V1)
         model.eval()

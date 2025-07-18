@@ -3,12 +3,17 @@ import torch
 import pandas as pd
 import numpy as np
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
+from pytorch_grad_cam.utils.model_targets import ClassifierOutputReST
+
 from utils_folder import load_image, basic_visualize, list_image_paths
 from pytorch_grad_cam import (
     GradCAM, GradCAMPlusPlus, LayerCAM, ScoreCAM,
     AblationCAM, ShapleyCAM
 )
+
 from cam.Cluscam import ClusterScoreCAM
+
+from pytorch_grad_cam.ablation_layer import AblationLayerVit
 
 
 from cam.polycam import PCAMp, PCAMm, PCAMpm
@@ -211,16 +216,17 @@ def batch_test(
         ins_curves_records = []
         cfds = []
         # senss = []
-        
+    
         if cam_method == "cluster":
             cam = CAM_FACTORY["cluster"](model_dict, num_clusters=c)
         elif cam_method == "reciprocam":
             cam = CAM_FACTORY["reciprocam"](model_dict)
             cam.model    = cam.model.to(device)       # weights lên GPU nếu device là 'cuda'
             cam.gaussian = cam.gaussian.to(device)    # filter lên GPU
-            cam.device   = device                     # cập nhật device nội bộ
+            cam.device   = device    
         else:
-            cam = CAM_FACTORY[cam_method](model_dict)
+            cam = CAM_FACTORY[cam_method](
+                model_dict)
         
         for idx, (path, cls) in enumerate(zip(image_paths, top1_idxs), 1):
             print(f"[{idx}/{len(image_paths)}] {os.path.basename(path)} -> class {cls}")
@@ -253,6 +259,9 @@ def batch_test(
                     if isinstance(out_cam, np.ndarray)
                     else out_cam
                 ).cpu().squeeze(0)
+            elif cam_method == "shapleycam":
+                saliency_np = cam(input_tensor=img_tensor, targets=[ClassifierOutputReST(cls)])
+                sal_map = torch.from_numpy(saliency_np).cpu().squeeze(0)
             else:
                 saliency_np = cam(input_tensor=img_tensor, targets=[ClassifierOutputTarget(cls)])
                 sal_map = torch.from_numpy(saliency_np).cpu().squeeze(0)
