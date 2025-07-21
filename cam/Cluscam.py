@@ -28,6 +28,7 @@ class ClusterScoreCAM(BaseCAM):
         self.zero_ratio = zero_ratio
         self.temperature_dict = temperature_dict or {}
         self.temperature = temperature
+        self.model = model_dict['arch']
 
     def forward(self, input, class_idx=None, retain_graph=False):
         # Input: (1,C,H,W)

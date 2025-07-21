@@ -13,6 +13,7 @@ from pytorch_grad_cam import (
 from cam.Cluscam import FeatureScoreCAM, DiffCAM
 from cam.HDBSCANcam import HDBSCANcam
 from cam.spectralcam import SpectralCAM  # Đổi tên từ ClusterScoreCAM
+from cam.randomcam import RandomCam
 
 from cam.polycam import PCAMp, PCAMm, PCAMpm
 from cam.recipro_cam import ReciproCam
@@ -132,7 +133,13 @@ CAM_FACTORY = {
     ),
     "diffcam": lambda md, **kw: DiffCAM(
         model_dict=md),
-        
+    
+    "randomcam": lambda md, **kw: RandomCam(
+        model_dict=md,
+        zero_ratio=md.get("zero_ratio", 0.5),
+        temperature_dict=md.get("temperature_dict", {}),
+        temperature=md.get("temperature", 0.5)
+    ),
     "spectralcam": lambda md, **kw: SpectralCAM(
         model_dict=md,
         zero_ratio=md.get("zero_ratio", 0.5),
@@ -228,7 +235,7 @@ def batch_test(
         ins_aucs = []
         senss = []
         
-        if cam_method in ("cluster", "DiffCAM"):
+        if cam_method in ("cluster", "DiffCAM", "randomcam"):
             cam = CAM_FACTORY["cluster"](model_dict, num_clusters=c)
         elif cam_method == "reciprocam":
             cam = CAM_FACTORY["reciprocam"](model_dict)

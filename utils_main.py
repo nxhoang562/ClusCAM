@@ -12,9 +12,7 @@ from pytorch_grad_cam import (
 )
 
 from cam.Cluscam import ClusterScoreCAM
-
-from pytorch_grad_cam.ablation_layer import AblationLayerVit
-
+from cam.randomcam import RandomCam
 
 from cam.polycam import PCAMp, PCAMm, PCAMpm
 from cam.recipro_cam import ReciproCam
@@ -214,7 +212,8 @@ def batch_test(
         drops, incs, del_aucs, curves_records, infids = [], [], [], [], []
         ins_aucs = []
         ins_curves_records = []
-        cfds = []
+        cfds, pred_probs = [], []
+        
         # senss = []
     
         if cam_method == "cluster":
@@ -232,6 +231,14 @@ def batch_test(
             print(f"[{idx}/{len(image_paths)}] {os.path.basename(path)} -> class {cls}")
             img = load_image(path)
             img_tensor = transform(img).unsqueeze(0).to(device)
+            
+            with torch.no_grad():
+                logits = model(img_tensor)                 # [1, C]
+                probs = F.softmax(logits, dim=1)            # [1, C]
+            pred_prob = probs[0, cls].item()
+            print("pred_prob", pred_prob)
+            pred_probs.append(pred_prob)
+            
             if cam_method == "cluster":
                 sal_map = cam(img_tensor, class_idx=cls).cpu().squeeze(0)
             elif cam_method in ["polyp", "polym", "polypm"]:
@@ -533,6 +540,7 @@ def batch_test(
         df = pd.DataFrame({
             "image_path": image_paths,
             "top1_index": top1_idxs,
+            "prediction_pro": pred_probs,
             "average_drop": drops,
             "increase_confidence": incs,
             # "deletion_auc": del_aucs,
@@ -545,6 +553,7 @@ def batch_test(
         avg_row = pd.DataFrame([{
             "image_path": "AVERAGE",
             "top1_index": "",
+            "prediction_pro": "",
             "average_drop": np.mean(drops),
             "increase_confidence": np.mean(incs),
             # "deletion_auc": np.mean(del_aucs),

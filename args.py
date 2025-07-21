@@ -70,7 +70,7 @@ def get_args():
             "layercam", "scorecam", "ablationcam",
             "shapleycam", "polyp", "polym", "polypm", 
             "opticam", "reciprocam", "hdbscan",
-            "spectralcam", "diffcam"
+            "spectralcam", "diffcam", "randomcam"
         ],
         default="cluster",
         help="Phương pháp CAM để sử dụng"
@@ -101,6 +101,13 @@ def get_args():
         default=4,
         help="Số worker để load dữ liệu trong chế độ batch"
     )
+    
+    parser.add_argument(
+    '--bbox-csv',
+    type=str,
+    default=None,
+    help='Path to CSV file with columns ImageId,PredictionString'
+)
     
     parser.add_argument('--mode-type', choices=['test','validation'], default='test')
     parser.add_argument('--start-idx', type=int)

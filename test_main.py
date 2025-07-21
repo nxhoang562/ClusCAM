@@ -11,7 +11,7 @@ from torchvision.models import (
 from args import get_args
 
 
-from utils_main import batch_test
+from utils_localization import batch_test
 from models.alzheimer_resnet18.alzheimer_resnet18 import load_model
 
 

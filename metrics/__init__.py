@@ -9,6 +9,9 @@ from .insertion_curve import InsertionCurveAUC, insertion_curve
 from .sensitivity     import Sensitivity
 from .average_confidence import AverageConfidence
 
+from .energy_point_game import EnergyPointGame
+from .IoUEnergyBoxSaliency import IoUEnergyBoxSaliency
+
 
 __all__ = [
     "AverageDrop",
@@ -22,4 +25,6 @@ __all__ = [
     "insertion_curve",
     "Sensitivity",
     "AverageConfidence",
+    "EnergyPointGame",
+    "IoUEnergyBoxSaliency",
 ]

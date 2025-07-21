@@ -3,18 +3,23 @@ set -euo pipefail
 
 # Danh sách các ResNet muốn test
 MODELS=(
-"efficientNet"
-"inception_v3"
+ 'resnet18'
+  'resnet34'
+  'resnet50'
+  'resnet101'
+  'efficientNet'
+  'inception_v3'
 )
 
 # Cấu hình chung
 CAM_METHOD="cluster"
 DATASET="/home/infres/ltvo/ClusCAM/datasets/imagenet/val_flattened"
-BASE_EXCEL_DIR="results/performance_results"
+BBOX="/home/infres/ltvo/ClusCAM/datasets/LOC_val_solution.csv"
+BASE_EXCEL_DIR="results/localization_results"
 # K_VALUES=(2 5 10 15 20 30 35 40 45 50 55 60 65 70 75 80 85 90 95 100 105 110 115 120 125 130 135 140 145 150 155 160 165 170 175 180 185 190 195 200)
-K_VALUES=(100 130 10 50 )
+K_VALUES=(100 50 )
 START_IDX=1001
-END_IDX=3001
+END_IDX=1501
 ZERO_RATIO=0.5
 TEMPERATURE=0.5
 MODE_TYPE="test"  
@@ -29,7 +34,7 @@ for MODEL in "${MODELS[@]}"; do
   # Tạo thư mục nếu chưa có
   mkdir -p "$(dirname "$EXCEL_PATH")"
   
-  python3 test_main.py \
+  python3 test_localization.py \
     --mode batch \
     --model "${MODEL}" \
     --dataset "${DATASET}" \
@@ -39,7 +44,8 @@ for MODEL in "${MODELS[@]}"; do
     --zero-ratio "${ZERO_RATIO}" \
     --temperature "${TEMPERATURE}" \
     --start-idx "${START_IDX}" \
-    --end-idx "${END_IDX}" 
+    --end-idx "${END_IDX}" \
+    --bbox-csv "${BBOX}" 
 
   echo "---- Finished $MODEL, results in $EXCEL_PATH ----"
   echo

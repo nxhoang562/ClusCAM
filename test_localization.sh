@@ -3,7 +3,12 @@ set -euo pipefail
 
 # Danh sách các model muốn test
 MODELS=(
+  'resnet18'
+  'resnet34'
+  'resnet50'
+  'resnet101'
   'efficientNet'
+  'inception_v3'
 )
 
 BASELINE_CAM_METHODS=(
@@ -18,11 +23,13 @@ BASELINE_CAM_METHODS=(
   "reciprocam"
 )
 
+
 # Cấu hình chung
 DATASET="/home/infres/ltvo/ClusCAM/datasets/imagenet/val_flattened"
-BASE_EXCEL_DIR="results/performance_results"
+BBOX="/home/infres/ltvo/ClusCAM/datasets/LOC_val_solution.csv"
+BASE_EXCEL_DIR="results/localization_results"
 START_IDX=1001
-END_IDX=3001
+END_IDX=1501
 # Tạo thư mục chung nếu chưa có
 mkdir -p "$BASE_EXCEL_DIR"
 
@@ -35,14 +42,15 @@ for MODEL in "${MODELS[@]}"; do
 
     mkdir -p "$(dirname "$EXCEL_PATH")"
 
-    python3 test_main.py \
+    python3 test_localization.py \
       --mode batch \
       --model "$MODEL" \
       --dataset "$DATASET" \
       --excel-path "$EXCEL_PATH" \
       --cam-method "$CAM" \
       --start-idx "$START_IDX" \
-      --end-idx "$END_IDX" 
+      --end-idx "$END_IDX" \
+      --bbox-csv "$BBOX" 
 
     echo "Results saved to $EXCEL_PATH"
     echo

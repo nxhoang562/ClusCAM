@@ -7,10 +7,10 @@ MODELS=(
 )
 
 # Cấu hình chung
-CAM_METHOD="cluster"
+CAM_METHOD="randomcam"
 DATASET="/home/infres/ltvo/ClusCAM/datasets/imagenet/val_flattened"
 BASE_EXCEL_DIR="results/abalation_resenet18"
-K_VALUES=(10 50)
+K_VALUES=(10 30 50 100)
 START_IDX=1001
 END_IDX=2001
 MODE_TYPE="test"
