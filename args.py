@@ -15,7 +15,8 @@ def get_args():
         '--model',
         choices=[
             'resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152',
-            'alzheimer_resnet18', "vgg16", "inception_v3", 'efficientNet'
+            'alzheimer_resnet18', "vgg16", "inception_v3", 'efficientNet',
+            'vit_b_16', 'swin_b'
         ],
         required=True,
         help='Chọn model để test'

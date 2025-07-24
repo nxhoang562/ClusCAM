@@ -1,6 +1,5 @@
 import copy
 import torch
-
 class ReciproCam:
     '''
     ReciproCam class contains official implementation of Reciprocal CAM algorithm for CNN architecture 

@@ -46,7 +46,7 @@ class ClusterScoreCAM(BaseCAM):
         # 2) Backprop lấy activation maps (low-res)
         self.model_arch.zero_grad()
         base_score.backward(retain_graph=retain_graph)
-        activations = self.activations['value'][0]  # (nc, u, v)
+        activations = self.activations['value'][0]  # (nc, u, v) (nc: số activation maps, u,v: kích thước thấp, [0] vì 1 ảnh có batch = 1)
         nc, u, v = activations.shape
 
         # 3) Upsample & normalize mỗi activation map lên input size

@@ -4,13 +4,24 @@ import torchvision.models as models
 from torchvision.models import (
     inception_v3, Inception_V3_Weights,
     ResNet18_Weights, ResNet34_Weights, ResNet50_Weights,
-    ResNet101_Weights, ResNet152_Weights, efficientnet_b0, EfficientNet_B0_Weights
+    ResNet101_Weights, ResNet152_Weights, efficientnet_b0, EfficientNet_B0_Weights,
+    vit_b_16, ViT_B_16_Weights,
+    swin_b,  Swin_B_Weights,
 )
 
 from args import get_args
-# from test_utils import test_single_image, batch_test
+
+
 from utils_main import batch_test
 from models.alzheimer_resnet18.alzheimer_resnet18 import load_model
+
+
+# def reshape_transform(tensor, height=14, width=14):
+#     # ViT-specific reshape
+#     result = tensor[:, 1:, :].reshape(tensor.size(0), height, width, tensor.size(2))
+#     # bring channels to first dim
+#     result = result.transpose(2, 3).transpose(1, 2)
+#     return result
 
 
 def main():
@@ -32,6 +43,7 @@ def main():
         model.eval()
         input_size = (224, 224)
         target_layer = model.layer4  # ResNet sử dụng layer4 cho layer cuối
+     
     elif args.model == 'alzheimer_resnet18':
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         model = load_model(
@@ -41,21 +53,39 @@ def main():
         model.eval()
         target_layer = model.layer4   # Alzheimer ResNet18 sử dụng layer4 cho layer cuối
         input_size = (128, 128)
+        
     elif args.model == 'vgg16':
         model = models.vgg16(weights=models.VGG16_Weights.IMAGENET1K_V1)
         model.eval()
         input_size = (224, 224)
         target_layer = model.features[28]  # VGG16 sử dụng features.28 cho layer cuối
+      
     elif args.model == 'inception_v3':
         model = inception_v3(weights=Inception_V3_Weights.IMAGENET1K_V1)
         model.eval()
         input_size = (299, 299)
         target_layer = model.Mixed_7c  # Inception V3 sử dụng Mixed_   
+     
     elif args.model == 'efficientNet':
         model = efficientnet_b0(weights=EfficientNet_B0_Weights.IMAGENET1K_V1)
         model.eval()
         input_size = (224, 224)
         target_layer = model.features[-1] # EfficientNet sử dụng features cuối cùng là c
+  
+    elif args.model == 'vit_b_16':
+        model = vit_b_16(weights=ViT_B_16_Weights.IMAGENET1K_V1)
+        model.eval()
+        input_size = (224, 224)
+        # target_layer = model.encoder.layers[-1].ln_1  # activations sau attention nhưng trước MLP
+        try:
+            target_layer = model.conv_proj
+        except AttributeError:
+            target_layer = model.patch_embed.proj  
+    elif args.model == 'swin_b': 
+        model = swin_b(weights=Swin_B_Weights.IMAGENET1K_V1)
+        model.eval()
+        input_size = (224, 224)
+        target_layer = model.features[0][0]
     else:
         raise ValueError(f"Model {args.model} không hỗ trợ")
 

@@ -3,22 +3,10 @@ set -euo pipefail
 
 # Danh sách các model muốn test
 MODELS=(
-  resnet18
-  resnet34
-  inception_v3
-  efficientNet
-  resnet50
-  vgg16
-  resnet101
-  resnet152
+  'resnet101'
 )
 
-
 BASELINE_CAM_METHODS=(
-  "gradcam"
-  "gradcamplusplus"
-  "layercam"
-  "scorecam"
   "ablationcam"
   "shapleycam"
   "polypm"
@@ -26,21 +14,11 @@ BASELINE_CAM_METHODS=(
   "reciprocam"
 )
 
-# BASELINE_CAM_METHODS=(
-# "gradcam"
-# "polypm"
-# "opticam"
-# "reciprocam"
-# )
-
-  # "cluster", "gradcam", "gradcamplusplus",
-  #           "layercam", "scorecam", "ablationcam", "shapleycam"
-
 # Cấu hình chung
-DATASET="datasets/ILSVRC2012_img_val"
-BASE_EXCEL_DIR="results/imagenet_val_rerun"
+DATASET="/home/infres/ltvo/ClusCAM/datasets/imagenet/val_flattened"
+BASE_EXCEL_DIR="results/performance_results"
 START_IDX=1001
-END_IDX=4001
+END_IDX=3001
 # Tạo thư mục chung nếu chưa có
 mkdir -p "$BASE_EXCEL_DIR"
 
@@ -53,7 +31,7 @@ for MODEL in "${MODELS[@]}"; do
 
     mkdir -p "$(dirname "$EXCEL_PATH")"
 
-    python3 test_main.py \
+    python3 /home/infres/ltvo/ClusCAM/test_main.py \
       --mode batch \
       --model "$MODEL" \
       --dataset "$DATASET" \
