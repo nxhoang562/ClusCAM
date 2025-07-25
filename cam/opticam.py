@@ -174,10 +174,16 @@ class Basic_OptCAM:
             name_mode = 'vgg'
             ):
         self.model = model.eval()
+        
+        if not isinstance(target_layer, (list, tuple)):
+            target_layers = [ target_layer ]
+        else:
+            target_layers = target_layer
+            
         self.device = device
         self.max_iter = max_iter
         self.learning_rate = learning_rate
-        self.fea_ext = ActivationsAndGradients(model, target_layer, None)
+        self.fea_ext = ActivationsAndGradients(model, target_layers, None)
         self.name_f = name_f
         self.name_loss = name_loss
         self.name_norm = name_norm

@@ -27,7 +27,7 @@ BASELINE_CAM_METHODS=(
 # Cấu hình chung
 DATASET="/home/infres/ltvo/ClusCAM/datasets/imagenet/val_flattened"
 BBOX="/home/infres/ltvo/ClusCAM/datasets/LOC_val_solution.csv"
-BASE_EXCEL_DIR="results/localization_results"
+BASE_EXCEL_DIR="results/chaylai_localization_results"
 START_IDX=1001
 END_IDX=1501
 # Tạo thư mục chung nếu chưa có

@@ -3,21 +3,21 @@ set -euo pipefail
 
 # Danh sách các ResNet muốn test
 MODELS=(
- 'resnet18'
+  'resnet18'
+  'efficientNet'
   'resnet34'
   'resnet50'
-  'resnet101'
-  'efficientNet'
   'inception_v3'
+  'resnet101'
 )
 
 # Cấu hình chung
 CAM_METHOD="cluster"
 DATASET="/home/infres/ltvo/ClusCAM/datasets/imagenet/val_flattened"
 BBOX="/home/infres/ltvo/ClusCAM/datasets/LOC_val_solution.csv"
-BASE_EXCEL_DIR="results/localization_results"
+BASE_EXCEL_DIR="results/chaylai_localization_results"
 # K_VALUES=(2 5 10 15 20 30 35 40 45 50 55 60 65 70 75 80 85 90 95 100 105 110 115 120 125 130 135 140 145 150 155 160 165 170 175 180 185 190 195 200)
-K_VALUES=(100 50 )
+K_VALUES=(10 50 100 )
 START_IDX=1001
 END_IDX=1501
 ZERO_RATIO=0.5

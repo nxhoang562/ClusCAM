@@ -6,13 +6,12 @@ from torchvision.models import (
     ResNet18_Weights, ResNet34_Weights, ResNet50_Weights,
     ResNet101_Weights, ResNet152_Weights, efficientnet_b0, EfficientNet_B0_Weights,
     vit_b_16, ViT_B_16_Weights,
-    swin_b,  Swin_B_Weights,
+    swin_b, Swin_B_Weights,
 )
 
 from args import get_args
 
-
-from utils_main import batch_test
+from find_prob import batch_test
 from models.alzheimer_resnet18.alzheimer_resnet18 import load_model
 
 
@@ -42,8 +41,7 @@ def main():
         model = constructor(weights=WeightsEnum.IMAGENET1K_V1)
         model.eval()
         input_size = (224, 224)
-        target_layer = model.layer4  # ResNet sử dụng layer4 cho layer cuối
-     
+        target_layer = model.layer4
     elif args.model == 'alzheimer_resnet18':
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         model = load_model(
@@ -51,37 +49,32 @@ def main():
             device=device
         )
         model.eval()
-        target_layer = model.layer4   # Alzheimer ResNet18 sử dụng layer4 cho layer cuối
         input_size = (128, 128)
-        
+        target_layer = model.layer4
     elif args.model == 'vgg16':
         model = models.vgg16(weights=models.VGG16_Weights.IMAGENET1K_V1)
         model.eval()
         input_size = (224, 224)
-        target_layer = model.features[28]  # VGG16 sử dụng features.28 cho layer cuối
-      
+        target_layer = model.features[28]
     elif args.model == 'inception_v3':
         model = inception_v3(weights=Inception_V3_Weights.IMAGENET1K_V1)
         model.eval()
         input_size = (299, 299)
-        target_layer = model.Mixed_7c  # Inception V3 sử dụng Mixed_   
-     
+        target_layer = model.Mixed_7c
     elif args.model == 'efficientNet':
         model = efficientnet_b0(weights=EfficientNet_B0_Weights.IMAGENET1K_V1)
         model.eval()
         input_size = (224, 224)
-        target_layer = model.features[-1] # EfficientNet sử dụng features cuối cùng là c
-  
+        target_layer = model.features[-1]
     elif args.model == 'vit_b_16':
         model = vit_b_16(weights=ViT_B_16_Weights.IMAGENET1K_V1)
         model.eval()
         input_size = (224, 224)
-        # target_layer = model.encoder.layers[-1].ln_1  # activations sau attention nhưng trước MLP
         try:
             target_layer = model.conv_proj
         except AttributeError:
-            target_layer = model.patch_embed.proj  
-    elif args.model == 'swin_b': 
+            target_layer = model.patch_embed.proj
+    elif args.model == 'swin_b':
         model = swin_b(weights=Swin_B_Weights.IMAGENET1K_V1)
         model.eval()
         input_size = (224, 224)
@@ -102,8 +95,7 @@ def main():
     # Chạy chế độ single image
     if args.mode == 'single':
         if not args.img_path:
-            raise RuntimeError("--img-path là bắt buộc khi mode='single'")
-
+            raise RuntimeError("--img-path là bắt buộc khi mode='single'" )
         drop, inc = test_single_image(
             model,
             model_dict,
@@ -114,36 +106,27 @@ def main():
         )
         print(f"Average Drop: {drop:.4f}, Increase Confidence: {inc:.4f}")
 
-    # Chạy chế độ batch
-    else:
+    # Chạy chế độ batch probabilities
+    elif args.mode == 'batch':
         if not args.dataset or not args.excel_path:
-            raise RuntimeError("--dataset và --excel-path là bắt buộc khi mode='batch'")
-
+            raise RuntimeError("--dataset và --excel-path là bắt buộc khi mode='batch_probs'")
         excel = args.excel_path
-        if not excel.lower().endswith(('.xls', '.xlsx')):
+        # đảm bảo đường dẫn file
+        if os.path.isdir(excel):
             os.makedirs(excel, exist_ok=True)
-            if args.cam_method == "cluster":
-                excel = os.path.join(
-                    excel,
-                    f"{args.model}_{args.cam_method}_zero-out-{args.zero_ratio}_temperature-{args.temperature}.xlsx"
-                )
-            else:
-                excel = os.path.join(excel, f"{args.model}__{args.cam_method}.xlsx")
-
+            excel = os.path.join(excel, f"all_models_probs.xlsx")
         batch_test(
             model,
-            model_dict,
+            args.model,
             args.dataset,
             excel,
-            args.k_values,
-            cam_method=args.cam_method,
             top_n=args.top_n,
-            model_name=args.model, 
             start_idx=args.start_idx,
             end_idx=args.end_idx
         )
+    else:
+        raise ValueError(f"Mode '{args.mode}' không hỗ trợ")
 
 
 if __name__ == '__main__':
     main()
-

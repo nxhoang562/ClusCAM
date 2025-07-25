@@ -1,5 +1,6 @@
 import copy
 import torch
+from torchvision.models.inception import Inception3
 
 class ReciproCam:
     '''
@@ -17,27 +18,61 @@ class ReciproCam:
             target_layer_name: layer name for understanding the layer's activation
         '''
 
+        # self.model = copy.deepcopy(model)
+        # self.model.eval()
+        # self.target_layer_name = target_layer_name
+        # self.device = device
+        # self.feature = None
+        # filter = [[1/16.0, 1/8.0, 1/16.0],
+        #             [1/8.0, 1/4.0, 1/8.0],
+        #             [1/16.0, 1/8.0, 1/16.0]]
+        # self.gaussian = torch.tensor(filter).to(device)
+        # self.softmax = torch.nn.Softmax(dim=1)
+        # self.target_layers = []
+        # self.conv_depth = 0
+        # if self.target_layer_name is not None:
+        #     children = dict(self.model.named_children())
+        #     if self.target_layer_name in children:
+        #         target = children[self.target_layer_name]
+        #         self._find_target_layer(target)
+        #     else:
+        #         self._find_target_layer(self.model)
+        # else:
+        #     self._find_target_layer(self.model)
+        
+        self.device = device
+
+        # --- KHỞI TẠO CHUNG PHẢI CÓ TRƯỚC ---
+        # filter Gaussian sẽ luôn tồn tại
+        filt = [[1/16.0, 1/8.0, 1/16.0],
+                [1/8.0, 1/4.0, 1/8.0],
+                [1/16.0, 1/8.0, 1/16.0]]
+        self.gaussian = torch.tensor(filt)     # để batch_test tự .to(device)
+        self.softmax = torch.nn.Softmax(dim=1)
+        self.feature = None
+
+        # Deep-copy và eval model
         self.model = copy.deepcopy(model)
         self.model.eval()
-        self.target_layer_name = target_layer_name
-        self.device = device
-        self.feature = None
-        filter = [[1/16.0, 1/8.0, 1/16.0],
-                    [1/8.0, 1/4.0, 1/8.0],
-                    [1/16.0, 1/8.0, 1/16.0]]
-        self.gaussian = torch.tensor(filter).to(device)
-        self.softmax = torch.nn.Softmax(dim=1)
-        self.target_layers = []
-        self.conv_depth = 0
-        if self.target_layer_name is not None:
-            children = dict(self.model.named_children())
-            if self.target_layer_name in children:
-                target = children[self.target_layer_name]
-                self._find_target_layer(target)
+
+        # Chỉ dành riêng cho Inception v3: hook vào Mixed_7c
+        if isinstance(model, Inception3):
+            self.target_layers = [ self.model.Mixed_7c ]
+        else:
+            # với CNN khác, dùng cơ chế target_layer_name cũ
+            self.target_layer_name = target_layer_name
+            self.target_layers = []
+            self.conv_depth = 0
+            if self.target_layer_name:
+                children = dict(self.model.named_children())
+                if self.target_layer_name in children:
+                    self._find_target_layer(children[self.target_layer_name])
+                else:
+                    self._find_target_layer(self.model)
             else:
                 self._find_target_layer(self.model)
-        else:
-            self._find_target_layer(self.model)
+
+        
         self.target_layers[-1].register_forward_hook(self._cam_hook())
 
 

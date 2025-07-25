@@ -9,8 +9,8 @@ from .insertion_curve import InsertionCurveAUC, insertion_curve
 from .sensitivity     import Sensitivity
 from .average_confidence import AverageConfidence
 
-from .energy_point_game import EnergyPointGame
-from .IoUEnergyBoxSaliency import IoUEnergyBoxSaliency
+from .energy_point_game import EnergyPointGame, EnergyPointGame_Threshold
+from .IoUEnergyBoxSaliency import Local_Error, Local_Error_Binary, Local_Error_EnergyThreshold
 
 
 __all__ = [
@@ -26,5 +26,8 @@ __all__ = [
     "Sensitivity",
     "AverageConfidence",
     "EnergyPointGame",
-    "IoUEnergyBoxSaliency",
+    "EnergyPointGame_Threshold",
+    "Local_Error_Binary", 
+    "Local_Error",
+    "Local_Error_EnergyThreshold"
 ]

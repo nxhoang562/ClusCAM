@@ -3,19 +3,19 @@ set -euo pipefail
 
 # Danh sách các model muốn test
 MODELS=(
+  'resnet18'
+  'resnet34'
+  'resnet50'
+  'resnet101'
   'efficientNet'
+  'vit_b_16'
+  'swin_b'
+  'inception_v3'
+
 )
 
 BASELINE_CAM_METHODS=(
-  "gradcam"
-  "gradcamplusplus"
-  "layercam"
-  "scorecam"
-  "ablationcam"
-  "shapleycam"
-  "polypm"
-  "opticam"
-  "reciprocam"
+'polypm'
 )
 
 # Cấu hình chung
@@ -31,7 +31,7 @@ for MODEL in "${MODELS[@]}"; do
     echo "==== Testing $MODEL with CAM_METHOD=$CAM ===="
 
     # Lưu file kết quả riêng biệt cho mỗi cặp model+CAM
-    EXCEL_PATH="${BASE_EXCEL_DIR}/_${MODEL}_cam-baselines_${START_IDX}_${END_IDX}-imgs.xlsx"
+    EXCEL_PATH="${BASE_EXCEL_DIR}/_${MODEL}_cam-baselines_${START_IDX}_${END_IDX}-imgs_2.xlsx"
 
     mkdir -p "$(dirname "$EXCEL_PATH")"
 

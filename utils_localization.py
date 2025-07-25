@@ -9,7 +9,7 @@ from pytorch_grad_cam.utils.model_targets import (
     ClassifierOutputTarget,
     ClassifierOutputReST
 )
-from metrics import EnergyPointGame, IoUEnergyBoxSaliency
+from metrics import EnergyPointGame, EnergyPointGame_Threshold, Local_Error, Local_Error_Binary, Local_Error_EnergyThreshold
 
 from cam_setup import CAM_FACTORY  # giả sử bạn import từ module riêng
 from utils_folder import load_image
@@ -161,7 +161,11 @@ def batch_test(
         print(f"\n=== Testing method={cam_method}" + (f", K={c}" if c else "") + " ===")
 
         energys = []
-        IoUs = []
+        energy_thrs = []
+        local_erros = []
+        local_binary_erros = []
+        local_threshold_erros = []
+        
 
         # 8. Initialize CAM and move it to the correct device
         if cam_method == "cluster":
@@ -234,11 +238,21 @@ def batch_test(
             # compute metrics if bbox provided
             if bbox_csv:
                 bbox = bboxes[idx - 1]
+                
                 energy = EnergyPointGame(bbox,  sal_map)
                 energys.append(float(energy.item()))
+                
+                energy_thr = EnergyPointGame_Threshold(bbox,  sal_map, threshold=0.5)
+                energy_thrs.append(float(energy_thr))
 
-                iou = IoUEnergyBoxSaliency(bbox,  sal_map)
-                IoUs.append(float(iou))
+                local_erro = Local_Error(bbox,  sal_map)
+                local_erros.append(float(local_erro))
+                
+                local_binary_erro = Local_Error_Binary(bbox, sal_map, thr = 0.5)
+                local_binary_erros.append(float(local_binary_erro))
+                
+                local_threshold_erro = Local_Error_EnergyThreshold(bbox, sal_map, thr = 0.5)
+                local_threshold_erros.append(float(local_threshold_erro))
 
         # 10. Build DataFrame and write to Excel
         data = {
@@ -247,7 +261,10 @@ def batch_test(
         }
         if bbox_csv:
             data["energy@bbox"] = energys
-            data["IoU"] = IoUs
+            data["energy@bbox_threshold"] =  energy_thrs
+            data["local_erro"] = local_erros
+            data["local_binary_erro"] = local_binary_erros
+            data["local_threshold_erros"] = local_threshold_erros
 
         df = pd.DataFrame(data)
         # add average row
@@ -256,8 +273,12 @@ def batch_test(
             "top1_index": "",
         }
         if bbox_csv:
-            avg_row["energy@bbox"] = sum(energys) / len(energys)
-            avg_row["IoU"] = sum(IoUs) / len(IoUs)
+            avg_row["energy@bbox"] = np.mean(energys)
+            avg_row["energy@bbox_threshold"] = np.mean(energy_thrs)
+            avg_row["local_erro"] = np.mean(local_erros)
+            avg_row["local_binary_erro"] = np.mean(local_binary_erros)
+            avg_row["local_threshold_erros"] = np.mean(local_threshold_erros)
+            
 
         df = pd.concat([pd.DataFrame([avg_row]), df], ignore_index=True)
 
