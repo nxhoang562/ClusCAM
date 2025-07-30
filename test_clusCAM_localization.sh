@@ -3,12 +3,8 @@ set -euo pipefail
 
 # Danh sách các ResNet muốn test
 MODELS=(
-  'resnet18'
-  'efficientNet'
-  'resnet34'
-  'resnet50'
-  'inception_v3'
-  'resnet101'
+   'vit_b_16'
+  'swin_b'
 )
 
 # Cấu hình chung

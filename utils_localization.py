@@ -16,6 +16,7 @@ from utils_folder import load_image
 from torchvision import transforms
 from torchvision.models import VGG
 import torch.nn as nn
+from torchvision.models import VisionTransformer
 
 # Transforms
 rgb_transform = transforms.Compose([
@@ -166,6 +167,17 @@ def batch_test(
         local_binary_erros = []
         local_threshold_erros = []
         
+        
+        if cam_method in ("polyp","polym","polypm") \
+        and model_dict.get("target_layer_list") is None \
+        and isinstance(model, VisionTransformer):
+            # hook sau self-attention của block cuối
+            model_dict["target_layer_list"] = ["conv_proj"]
+        
+        if cam_method in ("reciprocam") \
+        and model_dict.get("target_layer_list") is None \
+        and isinstance(model, VisionTransformer):
+            model_dict["target_layer_list"] = model.encoder.layers[-1].ln_2
 
         # 8. Initialize CAM and move it to the correct device
         if cam_method == "cluster":

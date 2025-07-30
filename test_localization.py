@@ -8,7 +8,9 @@ from torchvision.models import (
     inception_v3, Inception_V3_Weights,
     ResNet18_Weights, ResNet34_Weights, ResNet50_Weights,
     ResNet101_Weights, ResNet152_Weights,
-    efficientnet_b0, EfficientNet_B0_Weights
+    efficientnet_b0, EfficientNet_B0_Weights, 
+    vit_b_16, ViT_B_16_Weights,
+    swin_b,  Swin_B_Weights,
 )
 from args import get_args
 from utils_localization import batch_test
@@ -78,7 +80,21 @@ def main():
         model.eval()
         target_layer = model.features[-1]
         input_size   = (224, 224)
-
+        
+    elif args.model == 'vit_b_16':
+        model = vit_b_16(weights=ViT_B_16_Weights.IMAGENET1K_V1)
+        model.eval()
+        input_size = (224, 224)
+        # target_layer = model.encoder.layers[-1].ln_1  # activations sau attention nhưng trước MLP
+        try:
+            target_layer = model.conv_proj
+        except AttributeError:
+            target_layer = model.patch_embed.proj  
+    elif args.model == 'swin_b': 
+        model = swin_b(weights=Swin_B_Weights.IMAGENET1K_V1)
+        model.eval()
+        input_size = (224, 224)
+        target_layer = model.features[0][0]
     else:
         raise ValueError(f"Model {args.model} không hỗ trợ")
 

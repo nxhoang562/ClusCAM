@@ -3,21 +3,17 @@ set -euo pipefail
 
 # Danh sách các model muốn test
 MODELS=(
-  'resnet18'
-  'resnet34'
-  'resnet50'
-  'resnet101'
-  'efficientNet'
-  'inception_v3'
+   
+   'swin_b'
 )
 
 BASELINE_CAM_METHODS=(
-  "gradcam"
-  "gradcamplusplus"
-  "layercam"
-  "scorecam"
-  "ablationcam"
-  "shapleycam"
+  # "gradcam"
+  # "gradcamplusplus"
+  # "layercam"
+  # "scorecam"
+  # "ablationcam"
+  # "shapleycam"
   "polypm"
   "opticam"
   "reciprocam"
