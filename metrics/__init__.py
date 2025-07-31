@@ -1,5 +1,5 @@
 from .average_drop import AverageDrop
-from .average_increase import AverageIncrease
+from .average_increase import AverageIncrease,  AverageGain
 from .coherency       import Coherency
 from .complexity      import Complexity
 
@@ -30,4 +30,5 @@ __all__ = [
     "Local_Error_Binary", 
     "Local_Error",
     "Local_Error_EnergyThreshold"
+    "AverageGain"
 ]
